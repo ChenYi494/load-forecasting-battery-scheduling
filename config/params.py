@@ -7,6 +7,7 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PATH = {
     # 目錄
     "dataset_folder": "data",
+    "raw_data_folder": "data/raw",
     "exp_config_folder": "experiments/configs",
     "exp_result_folder": "experiments/results",
     "exp_model_folder": "experiments/results/models",
