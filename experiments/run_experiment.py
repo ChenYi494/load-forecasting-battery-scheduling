@@ -19,7 +19,7 @@ def run_experiment(cfg):
 
     # Step 1: Data Acquisition
     # Temporal splitting is handled within load_dataset to prevent data leakage
-    X_train, X_val, X_test, y_train, y_val, y_test, df = load_dataset(
+    X_train, X_val, X_test, y_train, y_val, y_test, spans = load_dataset(
         cfg["dataset_path"], cfg["target_col"], 1- cfg["train_ratio"], cfg["dataset_size"], cfg["shuffle"]
     )
 
@@ -56,7 +56,10 @@ def run_experiment(cfg):
         "complexity": model_pro.complexity(),
         "hyperparameters": model_pro.get_hyperparameters(),
         "seed": seed,
-        "data_time_span": [str(pd.to_datetime(df['timestamp'].min())), str(pd.to_datetime(df['timestamp'].max()))],
+        "train_start": spans["train_start"],
+        "train_end": spans["train_end"],
+        "test_start": spans["test_start"],
+        "test_end": spans["test_end"],
 
         # === Computational Benchmarking ===
         "train_time": results["train_time"],

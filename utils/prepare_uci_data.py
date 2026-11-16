@@ -3,7 +3,6 @@ import pandas as pd
 from config.params import BASE_DIR, PATH
 
 TARGET_USER = "MT_200"
-MAX_ROWS = 110000  # same cap as the March version, so results stay comparable
 
 
 def prepare_uci_data():
@@ -39,7 +38,7 @@ def prepare_uci_data():
     df_clean = df[valid].reset_index(drop=True)
     removed = total - len(df_clean)
 
-    df_final = df_clean.head(MAX_ROWS)
+    df_final = df_clean
     columns = ['timestamp', 'load', 'hour', 'minute', 'day_of_week', 'is_weekend', 'lag_1', 'lag_96']
     df_final = df_final[columns]
 
@@ -48,7 +47,7 @@ def prepare_uci_data():
     df_final.to_parquet(output_path, compression='snappy', index=False)
 
     print(f"Saved: {output_path}")
-    print(f"Raw rows: {total}; removed (zero or missing load/lags): {removed}; kept: {len(df_final)} (cap {MAX_ROWS})")
+    print(f"Raw rows: {total}; removed (zero or missing load/lags): {removed}; kept: {len(df_final)}")
     print(f"Time span: {df_final['timestamp'].min()} to {df_final['timestamp'].max()}")
 
 
