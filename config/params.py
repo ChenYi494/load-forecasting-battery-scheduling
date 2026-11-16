@@ -12,6 +12,7 @@ PATH = {
     "exp_result_folder": "experiments/results",
     "exp_model_folder": "experiments/results/models",
     "exp_log_folder": "experiments/results/train_logs",
+    "results_folder": "results",
     # 檔案
     "source_data": "source_data.parquet",
     "linear_cfg": "linear.json",
