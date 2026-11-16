@@ -3,7 +3,7 @@ import joblib
 from sklearn.ensemble import RandomForestRegressor
 
 class RFModel:
-    def __init__(self, n_estimators=100, max_depth=None, min_samples_leaf=1, max_features="sqrt", random_seed=42):
+    def __init__(self, n_estimators=100, max_depth=None, min_samples_leaf=1, max_features=1.0, random_seed=42):
         # Initialize the ensemble regressor
         self.model = RandomForestRegressor(
             n_estimators=n_estimators,           # Total number of decision trees

@@ -3,9 +3,6 @@ from itertools import product
 import json
 import os
 
-# Define output path and ensure the target directory exists for Random Forest configuration storage
-output_path = os.path.join(BASE_DIR, PATH["exp_config_folder"], PATH["rf_cfg"])
-os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
 def generate_rf_cfg(path):
     """
@@ -44,4 +41,7 @@ def generate_rf_cfg(path):
     return cfg_list
 
 
-generate_rf_cfg(output_path)
+if __name__ == "__main__":
+    output_path = os.path.join(BASE_DIR, PATH["exp_config_folder"], PATH["rf_cfg"])
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    generate_rf_cfg(output_path)

@@ -100,7 +100,7 @@ def get_model(cfg, X_train):
             n_estimators=cfg["n_estimators"],
             max_depth=cfg["max_depth"],
             min_samples_leaf=cfg.get("min_samples_leaf", 1),
-            max_features=cfg.get("max_features", "sqrt"),
+            max_features=cfg.get("max_features", 1.0),
             random_seed=cfg["random_seed"]
         )
     else:
