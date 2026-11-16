@@ -62,19 +62,20 @@ def run_experiment(cfg):
         "test_start": spans["test_start"],
         "test_end": spans["test_end"],
 
-        # === Computational Benchmarking ===
-        "train_time": results["train_time"],
-        "peak_ram": results["peak_ram"],
-        "avg_ram": results["avg_ram"],
-        "model_size": results["model_size"],
-        "effective_epochs": results.get("effective_epochs", 1),
+        # === Compute cost (see training/trainer.py for the measurement protocol) ===
+        "train_time_s": results["train_time_s"],
+        "effective_epochs": results["effective_epochs"],
+        "peak_rss_mb": results["peak_rss_mb"],
+        "rss_delta_mb": results["rss_delta_mb"],
+        "model_size_mb": results["model_size_mb"],
+        "latency_ms_median": results["latency_ms_median"],
+        "latency_ms_p95": results["latency_ms_p95"],
+        "batch_inference_ms": results["batch_inference_ms"],
+        "batch_rows": results["batch_rows"],
 
-        ## === Performance & Efficiency Metrics ===
+        # === Accuracy (kW) ===
         "rmse": results["rmse"],
         "mae": results["mae"],
-        "inference_time": results["inference_time"],
-        "inference_batch_size": results["inference_batch_size"],
-        "resource_efficiency": results["resource_efficiency"]
     }
 
     return summary
