@@ -4,6 +4,7 @@ import torch.utils.data as data
 import os
 import copy
 import joblib
+import numpy as np
 
 class MLPModel:
     def __init__(self, input_dim, hidden_layers, dropout, lr):
@@ -35,13 +36,20 @@ class MLPModel:
         Returns the number of effective epochs completed.
         """
         # Convert to PyTorch Tensors
-        X_t = torch.tensor(X_train, dtype=torch.float32)
-        y_t = torch.tensor(y_train, dtype=torch.float32).view(-1, 1)
-        X_v = torch.tensor(X_val, dtype=torch.float32)
-        y_v = torch.tensor(y_val, dtype=torch.float32).view(-1, 1)
+        # Standardize the target with training statistics; predictions are mapped back to kW
+        self.y_mean = float(np.mean(y_train))
+        self.y_std = float(np.std(y_train)) or 1.0
 
+        X_t = torch.tensor(X_train, dtype=torch.float32)
+        y_t = torch.tensor((y_train - self.y_mean) / self.y_std, dtype=torch.float32).view(-1, 1)
+        X_v = torch.tensor(X_val, dtype=torch.float32)
+        y_v = torch.tensor((y_val - self.y_mean) / self.y_std, dtype=torch.float32).view(-1, 1)
+
+        # Shuffle mini-batches within the training window only (no future rows are involved);
+        # the generator follows the global torch seed, so runs stay reproducible
         dataset = data.TensorDataset(X_t, y_t)
-        loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=False)
+        generator = torch.Generator().manual_seed(torch.initial_seed())
+        loader = data.DataLoader(dataset, batch_size=batch_size, shuffle=True, generator=generator)
 
         best_val_loss = float('inf')
         epochs_no_improve = 0
@@ -67,19 +75,20 @@ class MLPModel:
                 val_pred = self.model(X_v)
                 val_loss = self.loss_fn(val_pred, y_v).item()
 
-            # Early Stopping Logic: Restore best weights if no improvement is seen
+            # Early stopping: keep a COPY of the best weights (state_dict() returns live references)
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
                 epochs_no_improve = 0
-                self.best_state = self.model.state_dict()
+                self.best_state = copy.deepcopy(self.model.state_dict())
             else:
                 epochs_no_improve += 1
 
             if epochs_no_improve >= patience:
                 print(f"Early stopping triggered at epoch {epoch + 1}")
-                self.model.load_state_dict(self.best_state)  # Rollback to optimal weights
                 break
 
+        # Always end on the best validation weights, whether or not early stopping triggered
+        self.model.load_state_dict(self.best_state)
         return effective_epochs
 
     def predict(self, X):
@@ -87,11 +96,14 @@ class MLPModel:
         self.model.eval()
         X_t = torch.tensor(X, dtype=torch.float32)
         with torch.no_grad():
-            return self.model(X_t).cpu().numpy().flatten()
+            pred = self.model(X_t).cpu().numpy().flatten()
+        return pred * self.y_std + self.y_mean
 
     def save(self, path):
         """Serializes the model to binary with Zlib compression to optimize storage."""
-        joblib.dump(self.model, path, compress=3)
+        # Save weights together with the target scaling, which predictions need
+        joblib.dump({"state_dict": self.model.state_dict(), "y_mean": self.y_mean, "y_std": self.y_std},
+                    path, compress=3)
 
     @staticmethod
     def model_size(path):

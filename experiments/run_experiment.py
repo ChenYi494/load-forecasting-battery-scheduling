@@ -1,7 +1,7 @@
 import json
 import random
 import numpy as np
-import pandas as pd
+import torch
 from data.dataset import load_dataset
 from models.linear_regression import LinearModel
 from models.fully_connected_MLP import MLPModel
@@ -16,6 +16,7 @@ def run_experiment(cfg):
     seed = cfg["random_seed"]
     random.seed(seed)
     np.random.seed(seed)
+    torch.manual_seed(seed)
 
     # Step 1: Data Acquisition
     # Temporal splitting is handled within load_dataset to prevent data leakage
