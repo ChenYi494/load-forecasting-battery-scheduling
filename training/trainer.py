@@ -1,106 +1,142 @@
-import time
-import psutil
-import os
 import gc
+import os
+import threading
+import time
+
+import numpy as np
+import psutil
 import torch
-import tracemalloc
+
 from config.params import PATH
 from metrics.metrics import rmse, mae
 from utils.time_tools import format_time
 
+# Latency protocol: predict LATENCY_SAMPLES test rows one at a time, LATENCY_ROUNDS times,
+# after one warm-up round; report the median and p95 of the per-row times
+LATENCY_SAMPLES = 200
+LATENCY_ROUNDS = 5
+# Batch protocol: predict the whole test set BATCH_ROUNDS times and report the median
+BATCH_ROUNDS = 5
+# Process memory (RSS) is sampled this often while training runs
+RSS_SAMPLE_INTERVAL_S = 0.01
+
+
+class PeakRSSMonitor:
+    """Samples the process resident set size (RSS) in a background thread and keeps the peak.
+
+    RSS covers memory allocated by native code (PyTorch, scikit-learn, NumPy),
+    which Python-level tools such as tracemalloc do not see.
+    """
+
+    def __init__(self, interval_s=RSS_SAMPLE_INTERVAL_S):
+        self.process = psutil.Process(os.getpid())
+        self.interval_s = interval_s
+        self.baseline_mb = 0.0
+        self.peak_mb = 0.0
+        self._stop = threading.Event()
+        self._thread = threading.Thread(target=self._run, daemon=True)
+
+    def _rss_mb(self):
+        return self.process.memory_info().rss / (1024 * 1024)
+
+    def _run(self):
+        while not self._stop.is_set():
+            self.peak_mb = max(self.peak_mb, self._rss_mb())
+            time.sleep(self.interval_s)
+
+    def __enter__(self):
+        gc.collect()
+        self.baseline_mb = self._rss_mb()
+        self.peak_mb = self.baseline_mb
+        self._thread.start()
+        return self
+
+    def __exit__(self, *exc):
+        self._stop.set()
+        self._thread.join()
+        self.peak_mb = max(self.peak_mb, self._rss_mb())
+        return False
+
+
+def measure_latency(model_pro, X_test):
+    """Per-row prediction latency in milliseconds (median and p95)."""
+    rows = X_test[:LATENCY_SAMPLES]
+    for i in range(len(rows)):  # warm-up
+        model_pro.predict(rows[i:i + 1])
+
+    per_row_ms = []
+    for _ in range(LATENCY_ROUNDS):
+        for i in range(len(rows)):
+            start = time.perf_counter()
+            model_pro.predict(rows[i:i + 1])
+            per_row_ms.append((time.perf_counter() - start) * 1000)
+    return float(np.median(per_row_ms)), float(np.percentile(per_row_ms, 95))
+
+
+def measure_batch(model_pro, X_test):
+    """Whole-test-set prediction time in milliseconds (median of BATCH_ROUNDS runs) and the predictions."""
+    times_ms = []
+    y_predict = None
+    for _ in range(BATCH_ROUNDS):
+        start = time.perf_counter()
+        y_predict = model_pro.predict(X_test)
+        times_ms.append((time.perf_counter() - start) * 1000)
+    return float(np.median(times_ms)), y_predict
+
+
 # training process
 def train_and_evaluate(model_pro, X_train, X_val, X_test, y_train, y_val, y_test, cfg):
-    # Metadata extraction
     exp_name = cfg["exp_name"]
     model_type = cfg["model"]
 
-    # Retrieve baseline memory consumption of the current process
-    process = psutil.Process(os.getpid())
-    base_mem_mb = process.memory_info().rss / (1024 * 1024)
-
-    # Initialize high-precision memory tracking
-    tracemalloc.start()
-    gc.collect()  # Forced garbage collection to ensure a clean baseline
-
-    # Execution phase: Model Training
+    # Training, with wall-clock time and sampled peak RSS
     train_start_time = time.time()
-
-    # Route training logic based on model characteristics
-    if model_type in ["linear", "rf"]:
-        # Non-iterative models: Direct fitting without validation-based early stopping
-        model_pro.train(X_train, y_train)
-        eff_epochs = 1
-    elif model_type == "mlp":
-        # Iterative models: Utilize validation set for convergence monitoring (Early Stopping)
-        eff_epochs = model_pro.train(
-            X_train, y_train, X_val, y_val,
-            epochs=cfg.get("epochs", 50),
-            batch_size=cfg.get("batch_size", 32)
-        )
+    with PeakRSSMonitor() as mem:
+        start = time.perf_counter()
+        if model_type in ["linear", "rf", "naive"]:
+            model_pro.train(X_train, y_train)
+            eff_epochs = 1
+        elif model_type == "mlp":
+            # Validation set drives early stopping
+            eff_epochs = model_pro.train(
+                X_train, y_train, X_val, y_val,
+                epochs=cfg.get("epochs", 50),
+                batch_size=cfg.get("batch_size", 32)
+            )
+        train_time_s = time.perf_counter() - start
     train_end_time = time.time()
-    train_time = train_end_time - train_start_time
 
-    # Capture peak memory utilization during the execution window
-    # _, peak_delta_bytes: Returns the maximum memory increment (in Bytes) since start
-    _, peak_delta_bytes = tracemalloc.get_traced_memory()
-    peak_delta_mb = peak_delta_bytes / (1024 * 1024)
+    # Inference: per-row latency and whole-test-set time
+    latency_median_ms, latency_p95_ms = measure_latency(model_pro, X_test)
+    batch_ms, y_predict = measure_batch(model_pro, X_test)
 
-    # Total Peak RAM = Static Baseline + Runtime Dynamic Peak
-    total_peak_ram = base_mem_mb + peak_delta_mb
-    tracemalloc.stop()
-
-    # Evaluation phase: Inference Latency Profiling
-    predict_start_time = time.time()
-    y_predict = model_pro.predict(X_test)
-    predict_end_time = time.time()
-    inference_time = predict_end_time - predict_start_time
-
-    # Model Serialization (Storage Footprint Assessment)
-    # Use .pth for PyTorch/MLP and .pkl for Scikit-learn based models
+    # Model size on disk (.pth for PyTorch, .pkl for scikit-learn)
     ext = ".pth" if model_type == "mlp" else ".pkl"
     model_dir = PATH["exp_model_folder"]
     os.makedirs(model_dir, exist_ok=True)
     model_path = os.path.join(model_dir, f"{exp_name}_model{ext}")
     model_pro.save(model_path)
 
-    # Performance metric calculation
-    test_rmse = rmse(y_test, y_predict)
-
-    # Resource Efficiency Scoring
-    # Applying stabilization offsets to prevent numerical instability in high-performance scenarios
-    BASE_RAM_GB = 0.05
-    BASE_TIME = 0.001
-
-    safe_rmse = max(test_rmse, 1.0)  # Lower-bound error to prevent score explosion
-    ram_gb = (total_peak_ram / 1024) + BASE_RAM_GB
-    safe_time = inference_time + BASE_TIME
-
-    # Efficiency Formula: 100 / (Error * Latency * Memory)
-    # Higher scores represent superior Pareto-optimality between accuracy and resources.
-    resource_eff = round(100 / (safe_rmse * safe_time * ram_gb), 6)
-
-    # Consolidate results for telemetry and logging
     result = {
-        # === Computational Performance ===
         "train_start_time": format_time(train_start_time),
         "train_end_time": format_time(train_end_time),
-        "train_time": round(train_time, 6),
+        "train_time_s": round(train_time_s, 6),
         "effective_epochs": eff_epochs,
-        "peak_ram": round(total_peak_ram, 4),
-        "avg_ram": round((base_mem_mb + total_peak_ram) / 2, 4),
-        "model_size": round(model_pro.model_size(model_path), 8),
+        "peak_rss_mb": round(mem.peak_mb, 2),
+        "rss_delta_mb": round(mem.peak_mb - mem.baseline_mb, 2),
+        "model_size_mb": round(model_pro.model_size(model_path), 6),
 
-        # === Predictive Precision & Efficiency ===
-        "rmse": round(test_rmse, 4),
-        "mae": round(mae(y_test, y_predict), 4),
-        "inference_time": round(inference_time, 4),
-        "inference_batch_size": len(X_test),
-        "resource_efficiency": resource_eff,
+        "rmse": round(float(rmse(y_test, y_predict)), 4),
+        "mae": round(float(mae(y_test, y_predict)), 4),
+        "latency_ms_median": round(latency_median_ms, 4),
+        "latency_ms_p95": round(latency_p95_ms, 4),
+        "batch_inference_ms": round(batch_ms, 3),
+        "batch_rows": len(X_test),
     }
 
-    # Memory deallocation and resource release
     del model_pro
     gc.collect()
-    if torch.cuda.is_available(): torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     return result

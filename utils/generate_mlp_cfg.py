@@ -3,9 +3,6 @@ from itertools import product
 import json
 import os
 
-# Define output path and ensure the target directory exists for MLP configuration storage
-output_path = os.path.join(BASE_DIR, PATH["exp_config_folder"], PATH["mlp_cfg"])
-os.makedirs(os.path.dirname(output_path), exist_ok=True)
 
 def generate_mlp_cfg(path):
     """
@@ -45,4 +42,8 @@ def generate_mlp_cfg(path):
     print(f"MLP configuration generation complete. Total trials: {len(cfg_list)}")
     return cfg_list
 
-generate_mlp_cfg(output_path)
+
+if __name__ == "__main__":
+    output_path = os.path.join(BASE_DIR, PATH["exp_config_folder"], PATH["mlp_cfg"])
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    generate_mlp_cfg(output_path)

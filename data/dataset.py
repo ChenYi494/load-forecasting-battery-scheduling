@@ -1,58 +1,63 @@
 import pandas as pd
-from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 
-# Load dataset from Parquet, perform temporal splitting, and standardize features.
+
+# Load dataset from Parquet, split it in time order, and standardize features.
 def load_dataset(dataset_path, target_col, test_ratio=0.2, dataset_size=0, shuffle=False):
     """
     Args:
         dataset_path: Path to the source Parquet file
         target_col: The dependent variable (label) for forecasting
-        test_ratio: Proportion of data reserved for the final test set
-        dataset_size: Number of samples to include (used for scalability profiling)
-        shuffle: Whether to shuffle data (False to prevent temporal leakage)
+        test_ratio: Share of the FULL dataset reserved as the test window (the latest rows)
+        dataset_size: Number of training rows (train + validation) taken right before the test window;
+                      0 uses every row before the test window
+        shuffle: Kept for config compatibility; must be False for time series
     """
+    if shuffle:
+        raise ValueError("shuffle=True would leak future data into training")
 
-    # Load data from memory-efficient Parquet format
     df = pd.read_parquet(dataset_path)
-
-    # Scale dataset for performance profiling across different magnitudes
-    if dataset_size > 0:
-        df = df.iloc[:dataset_size]
-
-    # Clean column headers to prevent key errors
     df.columns = df.columns.str.strip()
 
-    # Feature engineering: Isolate numerical features (X) and target variable (y)
-    X = df.select_dtypes(include=['number']).drop(columns=[target_col], errors='ignore')
-    y = df[target_col]
+    # Fixed test window: the latest test_ratio of the full dataset.
+    # It is the same for every dataset_size, so results across sizes are comparable.
+    n_test = int(round(len(df) * test_ratio))
+    test_df = df.iloc[-n_test:]
+    pool_df = df.iloc[:-n_test]
 
-    # Sequential Data Splitting
-    # First Split: Reserve the latest temporal segment as the Hold-out Test Set
-    X_train_full, X_test, y_train_full, y_test = train_test_split(
-        X, y, test_size=test_ratio, shuffle=shuffle
-    )
+    # Training pool: the dataset_size rows closest to the test window
+    if dataset_size > 0:
+        if dataset_size > len(pool_df):
+            raise ValueError(f"dataset_size={dataset_size} exceeds the {len(pool_df)} rows before the test window")
+        pool_df = pool_df.iloc[-dataset_size:]
 
-    # Second Split: Carve out a Validation Set from the training pool (10%)
-    # Validation data is used for hyperparameter tuning and Early Stopping triggers
-    X_train, X_val, y_train, y_val = train_test_split(
-        X_train_full, y_train_full, test_size=0.1, shuffle=shuffle
-    )
+    # Validation: the latest 10% of the training pool (used for MLP early stopping)
+    n_val = int(round(len(pool_df) * 0.1))
+    train_df = pool_df.iloc[:-n_val]
+    val_df = pool_df.iloc[-n_val:]
 
-    # Feature Scaling (Z-score Normalization)
-    # Prevents models from being biased toward features with larger absolute magnitudes
+    def split_xy(part):
+        X = part.select_dtypes(include=['number']).drop(columns=[target_col], errors='ignore')
+        return X, part[target_col].values
+
+    X_train, y_train = split_xy(train_df)
+    X_val, y_val = split_xy(val_df)
+    X_test, y_test = split_xy(test_df)
+
+    # Z-score scaling fitted on training rows only
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train)
     X_val = scaler.transform(X_val)
     X_test = scaler.transform(X_test)
 
-    # Return standardized datasets and the original dataframe for reference
-    return X_train, X_val, X_test, y_train.values, y_val.values, y_test.values, df
-
-
-    # =====================================================================================================
-    # DATA PARTITIONING STRATEGY:
-    # 1. Training Set   : Used for parameter optimization and weight updates.
-    # 2. Validation Set : Used for real-time performance monitoring and Early Stopping in MLP.
-    # 3. Test Set       : The 'final exam' for evaluating model generalization on unseen future data.
-    # =====================================================================================================
+    spans = {
+        "train_start": str(train_df['timestamp'].iloc[0]),
+        "train_end": str(val_df['timestamp'].iloc[-1]),
+        "test_start": str(test_df['timestamp'].iloc[0]),
+        "test_end": str(test_df['timestamp'].iloc[-1]),
+        # Needed by the naive baselines to map standardized lag features back to kW
+        "feature_names": list(scaler.feature_names_in_),
+        "feature_mean": scaler.mean_.tolist(),
+        "feature_scale": scaler.scale_.tolist(),
+    }
+    return X_train, X_val, X_test, y_train, y_val, y_test, spans

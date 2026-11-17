@@ -2,50 +2,54 @@ import os
 import pandas as pd
 from config.params import BASE_DIR, PATH
 
-def prepare_uci_data():
-    # Load raw dataset
-    # Handling European numeric formatting (decimal=',') and semicolon delimiters
-    file_path = 'LD2011_2014.txt'
-    df = pd.read_csv(file_path, sep=';', decimal=',', low_memory=False)
+TARGET_USER = "MT_200"
 
-    # Standardize column naming and timestamp parsing
-    df.rename(columns={df.columns[0]: 'timestamp'}, inplace=True)
+
+def prepare_uci_data():
+    # Load raw dataset (European number format: decimal=',' and ';' delimiters)
+    file_path = os.path.join(BASE_DIR, PATH["raw_data_folder"], "LD2011_2014.txt")
+    # The first column has an empty header and holds the timestamps
+    df = pd.read_csv(file_path, sep=';', decimal=',', low_memory=False,
+                     usecols=lambda c: c.startswith('Unnamed') or c in ('', TARGET_USER))
+    df = df.rename(columns={df.columns[0]: 'timestamp', TARGET_USER: 'load'})
     df['timestamp'] = pd.to_datetime(df['timestamp'])
 
-    # Target User Selection: Filtering specific load profiles (e.g., MT_200)
-    # Filter out zero values (pre-installation data points) to ensure data integrity
-    target_user = 'MT_200'
-    df_clean = df[['timestamp', target_user]].copy()
-    df_clean.rename(columns={target_user: 'load'}, inplace=True)
-    df_clean = df_clean[df_clean['load'] > 0].reset_index(drop=True)
+    # The raw file is a complete 15-minute grid; lags below rely on that
+    steps = df['timestamp'].diff().dropna().unique()
+    if len(steps) != 1 or steps[0] != pd.Timedelta(minutes=15):
+        raise ValueError(f"Expected a regular 15-minute timeline, found steps: {steps}")
 
-    # Temporal Feature Engineering (15-minute resolution)
-    # Extracting cyclical time features to capture daily and weekly seasonality
-    df_clean['hour'] = df_clean['timestamp'].dt.hour
-    df_clean['minute'] = df_clean['timestamp'].dt.minute
-    df_clean['day_of_week'] = df_clean['timestamp'].dt.dayofweek
-    df_clean['is_weekend'] = (df_clean['day_of_week'] >= 5).astype(int)
+    # Lag features on the full timeline, BEFORE removing any rows,
+    # so lag_1 is always 15 minutes earlier and lag_96 always 24 hours earlier
+    df['lag_1'] = df['load'].shift(1)
+    df['lag_96'] = df['load'].shift(96)
 
-    # Autoregressive Lag Features
-    # lag_1: Immediate prior step (15 mins ago)
-    # lag_96: Seasonal prior step (24 hours ago, 96 intervals of 15 mins)
-    df_clean['lag_1'] = df_clean['load'].shift(1)
-    df_clean['lag_96'] = df_clean['load'].shift(96)
+    # Calendar features
+    df['hour'] = df['timestamp'].dt.hour
+    df['minute'] = df['timestamp'].dt.minute
+    df['day_of_week'] = df['timestamp'].dt.day_of_week
+    df['is_weekend'] = (df['day_of_week'] >= 5).astype(int)
 
-    # Drop NaN values resulting from the shifting operations
-    df_clean.dropna(inplace=True)
+    # Remove rows without a valid target or valid lags.
+    # Zero readings are not real consumption: before metering starts, and the hour skipped
+    # when clocks move forward in March (documented by UCI).
+    total = len(df)
+    valid = (df['load'] > 0) & (df['lag_1'] > 0) & (df['lag_96'] > 0)
+    df_clean = df[valid].reset_index(drop=True)
+    removed = total - len(df_clean)
 
-    # Slice the dataset for experimental consistency
-    df_final = df_clean.head(110000)
+    df_final = df_clean
+    columns = ['timestamp', 'load', 'hour', 'minute', 'day_of_week', 'is_weekend', 'lag_1', 'lag_96']
+    df_final = df_final[columns]
 
-    # Persistence: Exporting to Parquet format with Snappy compression
-    # Parquet is used for efficient I/O and schema preservation in ML pipelines
     output_path = os.path.join(BASE_DIR, PATH['dataset_folder'], PATH['source_data'])
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     df_final.to_parquet(output_path, compression='snappy', index=False)
 
-    print(f"Preprocessing complete. Industrial-standard Parquet generated: {output_path}")
-    print(f"Record Count: {len(df_final)}")
-    print(f"Temporal Span: {df_final['timestamp'].min()} to {df_final['timestamp'].max()}")
+    print(f"Saved: {output_path}")
+    print(f"Raw rows: {total}; removed (zero or missing load/lags): {removed}; kept: {len(df_final)}")
+    print(f"Time span: {df_final['timestamp'].min()} to {df_final['timestamp'].max()}")
 
-prepare_uci_data()
+
+if __name__ == "__main__":
+    prepare_uci_data()

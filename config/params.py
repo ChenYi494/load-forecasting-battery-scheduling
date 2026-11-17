@@ -7,15 +7,18 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PATH = {
     # 目錄
     "dataset_folder": "data",
+    "raw_data_folder": "data/raw",
     "exp_config_folder": "experiments/configs",
     "exp_result_folder": "experiments/results",
     "exp_model_folder": "experiments/results/models",
     "exp_log_folder": "experiments/results/train_logs",
+    "results_folder": "results",
     # 檔案
     "source_data": "source_data.parquet",
     "linear_cfg": "linear.json",
     "mlp_cfg": "mlp.json",
     "rf_cfg": "rf.json",
+    "naive_cfg": "naive.json",
     "summary_results": "summary_results.csv"
 }
 
@@ -25,27 +28,23 @@ COMMON_BASE = {
     "target_col": "load",
     "train_ratio": 0.8,
     "shuffle": False,
-    "scaling": "standard",
-    "missing_strategy": "drop",
-    "num_threads": 1,
 }
 
-# Experimental parameters for Multi-Layer Perceptron (MLP)
+# Linear regression: OLS and Ridge (L2)
 LINEAR_PARAMS = {
     # Static configuration
     "base_cfg": {
         **COMMON_BASE,
         "model": "linear",
-        "fit_intercept": True,
     },
     # Hyperparameter search space
     "dataset_sizes": [1000, 10000, 100000],
     "random_seeds": [42, 123, 999],
-    "regulars": ["none", "L2"],
+    # "none" = OLS; each alpha = one Ridge configuration
     "alphas": [0.01, 1.0, 10.0]
 }
 
-# Experimental parameters for Random Forest (RF)
+# Multi-layer perceptron (PyTorch, Adam, early stopping with patience 5)
 MLP_PARAMS = {
     # Static configuration
     "base_cfg": {
@@ -53,9 +52,6 @@ MLP_PARAMS = {
         "model": "mlp",
         "learning_rate": 1e-03,
         "epochs": 200,
-        "optimizer": "Adam",
-        "early_stopping": "on",
-        "num_threads": 1,
     },
     # Architecture and capacity scaling parameters
     "dataset_sizes": [1000, 10000, 100000],
@@ -65,16 +61,16 @@ MLP_PARAMS = {
     "batch_sizes": [32, 256],
 }
 
-# Random Forest 模型參數
+# Random forest
 RF_PARAMS = {
     # Static configuration
     "base_cfg": {
         **COMMON_BASE,
         "model": "rf",
         "min_samples_leaf": 1,
-        "max_features": "sqrt",
-        "bootstrap": True,
-        "num_threads": 1
+        # Consider all 6 features at every split; "sqrt" (the March setting) saw only 2,
+        # so most splits could not use lag_1, the strongest predictor
+        "max_features": 1.0,
     },
     # Complexity and inference jitter parameters
     "dataset_sizes": [1000, 10000, 100000],
@@ -83,3 +79,14 @@ RF_PARAMS = {
     "max_depth": [10, 50, None]
 }
 
+# Naive baselines (no training): persistence (lag_1) and same time yesterday (lag_96).
+# They ignore the seed and the training size; one run per size keeps every table complete.
+NAIVE_PARAMS = {
+    "base_cfg": {
+        **COMMON_BASE,
+        "model": "naive",
+    },
+    "dataset_sizes": [1000, 10000, 100000],
+    "random_seeds": [42],
+    "lag_cols": ["lag_1", "lag_96"],
+}

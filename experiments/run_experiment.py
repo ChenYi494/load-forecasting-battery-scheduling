@@ -1,11 +1,12 @@
 import json
 import random
 import numpy as np
-import pandas as pd
+import torch
 from data.dataset import load_dataset
 from models.linear_regression import LinearModel
 from models.fully_connected_MLP import MLPModel
 from models.random_forest import RFModel
+from models.naive import NaiveModel
 from training.trainer import train_and_evaluate
 from utils.get_hardware_profile import get_hardware_profile
 
@@ -16,15 +17,16 @@ def run_experiment(cfg):
     seed = cfg["random_seed"]
     random.seed(seed)
     np.random.seed(seed)
+    torch.manual_seed(seed)
 
     # Step 1: Data Acquisition
     # Temporal splitting is handled within load_dataset to prevent data leakage
-    X_train, X_val, X_test, y_train, y_val, y_test, df = load_dataset(
+    X_train, X_val, X_test, y_train, y_val, y_test, spans = load_dataset(
         cfg["dataset_path"], cfg["target_col"], 1- cfg["train_ratio"], cfg["dataset_size"], cfg["shuffle"]
     )
 
     # Model-Specific Data Routing
-    if cfg["model"] in ["rf", "linear"]:
+    if cfg["model"] in ["rf", "linear", "naive"]:
         # Merge validation set back into training for models that do not require
         # real-time monitoring (Early Stopping), maximizing sample utilization.
         X_train = np.r_[X_train, X_val]
@@ -32,7 +34,7 @@ def run_experiment(cfg):
         print(f"[{cfg['model'].upper()}] Validation set merged into training. Total samples: {len(X_train)}")
 
     # Step 2: Model Factory Initialization
-    model_pro = get_model(cfg, X_train)
+    model_pro = get_model(cfg, X_train, spans)
 
     # Step 3: Training and Resource Profiling
     results = train_and_evaluate(
@@ -40,7 +42,7 @@ def run_experiment(cfg):
     )
 
     # Final Quantitative Summary Construction
-    actual_val_size = 0 if cfg["model"] in ["rf", "linear"] else len(X_val)
+    actual_val_size = 0 if cfg["model"] in ["rf", "linear", "naive"] else len(X_val)
     summary = {
         # === Metadata & Environment ===
         "exp_name": cfg["exp_name"],
@@ -56,27 +58,31 @@ def run_experiment(cfg):
         "complexity": model_pro.complexity(),
         "hyperparameters": model_pro.get_hyperparameters(),
         "seed": seed,
-        "data_time_span": [str(pd.to_datetime(df['timestamp'].min())), str(pd.to_datetime(df['timestamp'].max()))],
+        "train_start": spans["train_start"],
+        "train_end": spans["train_end"],
+        "test_start": spans["test_start"],
+        "test_end": spans["test_end"],
 
-        # === Computational Benchmarking ===
-        "train_time": results["train_time"],
-        "peak_ram": results["peak_ram"],
-        "avg_ram": results["avg_ram"],
-        "model_size": results["model_size"],
-        "effective_epochs": results.get("effective_epochs", 1),
+        # === Compute cost (see training/trainer.py for the measurement protocol) ===
+        "train_time_s": results["train_time_s"],
+        "effective_epochs": results["effective_epochs"],
+        "peak_rss_mb": results["peak_rss_mb"],
+        "rss_delta_mb": results["rss_delta_mb"],
+        "model_size_mb": results["model_size_mb"],
+        "latency_ms_median": results["latency_ms_median"],
+        "latency_ms_p95": results["latency_ms_p95"],
+        "batch_inference_ms": results["batch_inference_ms"],
+        "batch_rows": results["batch_rows"],
 
-        ## === Performance & Efficiency Metrics ===
+        # === Accuracy (kW) ===
         "rmse": results["rmse"],
         "mae": results["mae"],
-        "inference_time": results["inference_time"],
-        "inference_batch_size": results["inference_batch_size"],
-        "resource_efficiency": results["resource_efficiency"]
     }
 
     return summary
 
 
-def get_model(cfg, X_train):
+def get_model(cfg, X_train, spans):
     if cfg["model"] == "linear":
         return LinearModel(
             reg_type=cfg.get("regularization", "none"),
@@ -95,8 +101,15 @@ def get_model(cfg, X_train):
             n_estimators=cfg["n_estimators"],
             max_depth=cfg["max_depth"],
             min_samples_leaf=cfg.get("min_samples_leaf", 1),
-            max_features=cfg.get("max_features", "sqrt"),
+            max_features=cfg.get("max_features", 1.0),
             random_seed=cfg["random_seed"]
+        )
+    elif cfg["model"] == "naive":
+        return NaiveModel(
+            lag_col=cfg["lag_col"],
+            feature_names=spans["feature_names"],
+            feature_mean=spans["feature_mean"],
+            feature_scale=spans["feature_scale"]
         )
     else:
         return "unknown"
