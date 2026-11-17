@@ -5,6 +5,8 @@ import { loadResults, type Results } from './data.ts'
 import { defaultFilters, withinBudget, type Filters } from './filters.ts'
 import { day, int } from './format.ts'
 import Comparison from './sections/Comparison.tsx'
+import DataSize from './sections/DataSize.tsx'
+import Forecast from './sections/Forecast.tsx'
 import Overview from './sections/Overview.tsx'
 
 const TABS = [
@@ -80,7 +82,9 @@ export default function App() {
             <MetricCards results={results} size={filters.size} passing={passing} />
             {tab === 'overview' && <Overview results={results} />}
             {tab === 'comparison' && <Comparison results={results} filters={filters} passing={passing} />}
-            {(tab === 'data-size' || tab === 'forecast' || tab === 'methods') && (
+            {tab === 'data-size' && <DataSize results={results} filters={filters} passing={passing} />}
+            {tab === 'forecast' && <Forecast results={results} />}
+            {tab === 'methods' && (
               <section className="panel">
                 <h2>{TABS.find((t) => t.id === tab)!.label}</h2>
                 <p className="muted">Built in the next step.</p>

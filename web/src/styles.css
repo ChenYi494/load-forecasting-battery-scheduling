@@ -192,6 +192,10 @@ h2 { font-family: var(--f-display); font-size: 19px; }
 .facts dd { margin: 0; }
 .fact { display: contents; }
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.note { font-size: 13.5px; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; max-width: 90ch; }
+.range { color: var(--muted); font-size: 12px; }
+.series-picker { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 .empty { padding: 24px; text-align: center; color: var(--muted); background: var(--tint); border-radius: 8px; }
 
 /* ── Tables ── */

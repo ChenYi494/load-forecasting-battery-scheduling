@@ -5,6 +5,7 @@ import { useTheme } from '../components/useTheme.ts'
 import { MODEL_LABELS, type MetricKey, type Results, type Run } from '../data.ts'
 import type { Filters } from '../filters.ts'
 import { int, num } from '../format.ts'
+import { median } from '../stats.ts'
 
 const X_OPTIONS: { key: MetricKey; label: string; unit: string; digits: number }[] = [
   { key: 'rss_delta_mb', label: 'Training memory', unit: 'MB', digits: 1 },
@@ -209,11 +210,4 @@ export default function Comparison({ results, filters, passing }: { results: Res
       </section>
     </div>
   )
-}
-
-function median(values: number[]): number | null {
-  if (values.length === 0) return null
-  const s = [...values].sort((a, b) => a - b)
-  const mid = Math.floor(s.length / 2)
-  return s.length % 2 ? s[mid] : (s[mid - 1] + s[mid]) / 2
 }
