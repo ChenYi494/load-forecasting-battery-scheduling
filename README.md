@@ -76,34 +76,33 @@ Python 3.12 and Node 22.
 python3.12 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 
-python -m scripts.download_data      # UCI data into data/raw/, SHA-256 checked
-python -m utils.prepare_uci_data     # features -> data/source_data.parquet
-python -m utils.generate_naive_cfg   # experiment grids
-python -m utils.generate_linear_cfg
-python -m utils.generate_mlp_cfg
-python -m utils.generate_rf_cfg
-python -m main --estimate            # optional: estimate run time
-python -m main                       # 204 runs -> results/summary_results.csv (resumable)
-python -m scripts.export_results     # -> web/public/results.json
+python -m benchmark.data.download      # UCI data into data/raw/, SHA-256 checked
+python -m benchmark.data.prepare       # features -> data/source_data.parquet
+python -m benchmark.experiments.grids  # experiment grids -> benchmark/experiments/configs/
+python -m benchmark.run --estimate     # optional: estimate run time
+python -m benchmark.run                # 204 runs -> results/summary_results.csv (resumable)
+python -m benchmark.export             # -> web/public/results.json
 
-cd web && npm install && npm run dev # results site at http://localhost:5173
+cd web && npm install && npm run dev   # results site at http://localhost:5173
 ```
 
-`data/source_data.parquet` is committed, so the download and preparation steps can be skipped. `python -m scripts.check_splits` prints the train and test windows for each training size.
+`data/source_data.parquet` is committed, so the download and preparation steps can be skipped. `python -m benchmark.check_splits` prints the train and test windows for each training size.
 
 ## Repository
 
 ```
-config/params.py          paths and experiment grids
-scripts/                  data download, split check, export for the site
-utils/                    data preparation, grid generators, hardware profile
-data/dataset.py           fixed test window, scaling
-models/                   naive baselines, linear, MLP, random forest
-training/trainer.py       training, timing and memory measurement
-experiments/              one run; generated configs
-main.py                   runs every config, each in its own process
-results/                  summary_results.csv (current), before/ (March 2026)
-web/                      results site (React, TypeScript, ECharts)
+benchmark/                  experiment code (Python package)
+├── config.py               paths and experiment grids
+├── data/                   download, prepare (features), dataset (fixed test window, scaling)
+├── models/                 naive baselines, linear, MLP, random forest
+├── training/               training loop, timing and memory measurement, metrics
+├── experiments/            grids, one run, generated configs
+├── run.py                  runs every config, each in its own process
+├── export.py               results -> web/public/results.json
+└── check_splits.py · hardware.py · time_tools.py
+data/                       source_data.parquet (raw download in data/raw/, not committed)
+results/                    summary_results.csv (current), before/ (March 2026)
+web/                        results site (React, TypeScript, ECharts)
 ```
 
 ## Limitations

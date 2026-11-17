@@ -8,11 +8,9 @@ PATH = {
     # 目錄
     "dataset_folder": "data",
     "raw_data_folder": "data/raw",
-    "exp_config_folder": "experiments/configs",
-    "exp_result_folder": "experiments/results",
-    "exp_model_folder": "experiments/results/models",
-    "exp_log_folder": "experiments/results/train_logs",
-    "results_folder": "results",
+    "exp_config_folder": "benchmark/experiments/configs",
+        "exp_model_folder": "results/models",
+        "results_folder": "results",
     # 檔案
     "source_data": "source_data.parquet",
     "linear_cfg": "linear.json",

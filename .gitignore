@@ -19,8 +19,8 @@ Thumbs.db
 # =========================
 # Project Specific - Experiments
 # =========================
-experiments/results/
-experiments/configs/
+results/models/
+results/_old_experiments_results/
 run.log
 
 # model

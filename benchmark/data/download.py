@@ -4,7 +4,7 @@ import shutil
 import urllib.request
 import zipfile
 
-from config.params import BASE_DIR, PATH
+from benchmark.config import BASE_DIR, PATH
 
 # UCI ElectricityLoadDiagrams20112014 (https://archive.ics.uci.edu/dataset/321)
 DATA_URL = "https://archive.ics.uci.edu/static/public/321/electricityloaddiagrams20112014.zip"

@@ -1,4 +1,4 @@
-// Types for public/results.json, written by scripts/export_results.py
+// Types for public/results.json, written by benchmark/export.py
 
 export type ModelId = 'naive' | 'linear' | 'mlp' | 'rf'
 

@@ -7,9 +7,9 @@ import numpy as np
 import psutil
 import torch
 
-from config.params import PATH
-from metrics.metrics import rmse, mae
-from utils.time_tools import format_time
+from benchmark.config import PATH
+from benchmark.training.metrics import rmse, mae
+from benchmark.time_tools import format_time
 
 # Latency protocol: predict LATENCY_SAMPLES test rows one at a time, LATENCY_ROUNDS times,
 # after one warm-up round; report the median and p95 of the per-row times

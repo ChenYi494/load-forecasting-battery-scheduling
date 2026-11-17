@@ -71,7 +71,7 @@ export default function App() {
 
       {error && (
         <p className="notice" role="alert">
-          {error}. Run <code>python -m scripts.export_results</code> to create it.
+          {error}. Run <code>python -m benchmark.export</code> to create it.
         </p>
       )}
       {!results && !error && <p className="notice">Loading results…</p>}

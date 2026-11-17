@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from config.params import BASE_DIR, PATH
+from benchmark.config import BASE_DIR, PATH
 
 TARGET_USER = "MT_200"
 

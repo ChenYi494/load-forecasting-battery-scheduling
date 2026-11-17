@@ -196,11 +196,11 @@ export default function Methods({ results }: { results: Results }) {
 
       <section className="panel">
         <h2>Reproduce</h2>
-        <pre className="code">{`python -m scripts.download_data
-python -m utils.prepare_uci_data
-python -m utils.generate_naive_cfg   # and linear, mlp, rf
-python -m main                       # ${meta.runs} runs
-python -m scripts.export_results     # writes web/public/results.json`}</pre>
+        <pre className="code">{`python -m benchmark.data.download
+python -m benchmark.data.prepare
+python -m benchmark.experiments.grids
+python -m benchmark.run              # ${meta.runs} runs
+python -m benchmark.export           # writes web/public/results.json`}</pre>
         <p className="muted">
           Results generated {meta.generated_at.slice(0, 10)}
           {meta.git_commit && <> from commit {meta.git_commit}</>}.

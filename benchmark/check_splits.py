@@ -1,5 +1,5 @@
-from config.params import COMMON_BASE, LINEAR_PARAMS
-from data.dataset import load_dataset
+from benchmark.config import COMMON_BASE, LINEAR_PARAMS
+from benchmark.data.dataset import load_dataset
 
 # Prints the train and test windows for each dataset size; the test window must be identical
 if __name__ == "__main__":

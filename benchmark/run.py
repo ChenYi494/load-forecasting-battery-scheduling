@@ -14,8 +14,8 @@ from multiprocessing import get_context
 import pandas as pd
 import torch
 
-from config.params import PATH
-from experiments.run_experiment import run_experiment
+from benchmark.config import PATH
+from benchmark.experiments.run_experiment import run_experiment
 
 config_keys = ["naive_cfg", "linear_cfg", "mlp_cfg", "rf_cfg"]
 summary_path = os.path.join(PATH["results_folder"], PATH["summary_results"])
@@ -40,7 +40,7 @@ def load_configs():
     for key in config_keys:
         path = os.path.join(PATH["exp_config_folder"], PATH[key])
         if not os.path.exists(path):
-            raise FileNotFoundError(f"{path} not found; run python -m utils.generate_{key[:-4]}_cfg first")
+            raise FileNotFoundError(f"{path} not found; run python -m benchmark.experiments.grids first")
         with open(path) as f:
             configs.extend(json.load(f))
     return configs

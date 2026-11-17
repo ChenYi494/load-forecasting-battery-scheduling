@@ -2,13 +2,13 @@ import json
 import random
 import numpy as np
 import torch
-from data.dataset import load_dataset
-from models.linear_regression import LinearModel
-from models.fully_connected_MLP import MLPModel
-from models.random_forest import RFModel
-from models.naive import NaiveModel
-from training.trainer import train_and_evaluate
-from utils.get_hardware_profile import get_hardware_profile
+from benchmark.data.dataset import load_dataset
+from benchmark.models.linear_regression import LinearModel
+from benchmark.models.fully_connected_MLP import MLPModel
+from benchmark.models.random_forest import RFModel
+from benchmark.models.naive import NaiveModel
+from benchmark.training.trainer import train_and_evaluate
+from benchmark.hardware import get_hardware_profile
 
 # experiment process
 def run_experiment(cfg):

@@ -1,5 +1,7 @@
 """Export benchmark results to web/public/results.json, the only data source of the results site.
 
+    python -m benchmark.export
+
 Everything the site shows is computed here from results/summary_results.csv, the March backup
 and the dataset; nothing is typed in by hand.
 """
@@ -14,10 +16,10 @@ import numpy as np
 import pandas as pd
 import torch
 
-from config.params import BASE_DIR, COMMON_BASE, PATH
-from data.dataset import load_dataset
-from experiments.run_experiment import get_model
-from training.trainer import BATCH_ROUNDS, LATENCY_ROUNDS, LATENCY_SAMPLES
+from benchmark.config import BASE_DIR, COMMON_BASE, PATH
+from benchmark.data.dataset import load_dataset
+from benchmark.experiments.run_experiment import get_model
+from benchmark.training.trainer import BATCH_ROUNDS, LATENCY_ROUNDS, LATENCY_SAMPLES
 
 RESULTS_CSV = os.path.join(BASE_DIR, PATH["results_folder"], PATH["summary_results"])
 MARCH_CSV = os.path.join(BASE_DIR, PATH["results_folder"], "before", "summary_results_2026-03.csv")
