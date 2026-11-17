@@ -115,6 +115,8 @@ export const MODEL_LABELS: Record<ModelId, string> = {
 
 export async function loadResults(): Promise<Results> {
   const response = await fetch(`${import.meta.env.BASE_URL}results.json`)
-  if (!response.ok) throw new Error(`results.json could not be loaded (HTTP ${response.status})`)
+  // A missing file can come back as the HTML page itself, so check the type as well as the status
+  const isJson = (response.headers.get('content-type') ?? '').includes('json')
+  if (!response.ok || !isJson) throw new Error('The results file (results.json) is missing or is not valid JSON')
   return (await response.json()) as Results
 }

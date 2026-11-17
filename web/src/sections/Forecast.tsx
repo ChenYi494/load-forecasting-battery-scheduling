@@ -34,7 +34,19 @@ export default function Forecast({ results }: { results: Results }) {
       tooltip: { trigger: 'axis', valueFormatter: (v) => `${num(Number(v), 0)} kW` },
       dataZoom: [
         { type: 'inside' },
-        { type: 'slider', height: 22, bottom: 12, borderColor: theme.line, textStyle: { color: theme.muted } },
+        {
+          type: 'slider',
+          height: 22,
+          bottom: 12,
+          borderColor: theme.line,
+          backgroundColor: 'transparent',
+          fillerColor: 'rgba(127, 140, 135, 0.18)',
+          dataBackground: { lineStyle: { color: theme.muted }, areaStyle: { color: theme.line } },
+          selectedDataBackground: { lineStyle: { color: theme.muted }, areaStyle: { color: theme.line } },
+          handleStyle: { color: theme.surface, borderColor: theme.muted },
+          moveHandleStyle: { color: theme.muted },
+          textStyle: { color: theme.muted },
+        },
       ],
       xAxis: {
         type: 'category',
@@ -56,7 +68,7 @@ export default function Forecast({ results }: { results: Results }) {
                 symbol: 'none',
                 silent: true,
                 lineStyle: { color: theme.series.rf, type: 'dotted', width: 1.5 },
-                label: { formatter: `Highest load in the 10k training rows (${num(rf10k.train_max_kw, 0)} kW)`, color: theme.muted, position: 'insideMiddleBottom' },
+                label: { show: false },
                 data: [{ yAxis: rf10k.train_max_kw }],
               }
             : undefined,
@@ -97,6 +109,12 @@ export default function Forecast({ results }: { results: Results }) {
             </label>
           ))}
         </fieldset>
+        {rf10k && (
+          <p className="muted">
+            Dotted green line: the highest load in the 10,000 training rows ({num(rf10k.train_max_kw, 0)} kW). The small random
+            forest cannot forecast above it.
+          </p>
+        )}
         <Chart option={option} height={420} label={`Line chart of actual load and selected forecasts from ${day(week.start)} to ${day(week.end)}`} />
         <p className="muted">
           Models were re-trained once with seed 42 to draw these curves; their errors over the whole test period match the
