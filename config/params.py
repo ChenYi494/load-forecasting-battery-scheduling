@@ -18,6 +18,7 @@ PATH = {
     "linear_cfg": "linear.json",
     "mlp_cfg": "mlp.json",
     "rf_cfg": "rf.json",
+    "naive_cfg": "naive.json",
     "summary_results": "summary_results.csv"
 }
 
@@ -78,3 +79,14 @@ RF_PARAMS = {
     "max_depth": [10, 50, None]
 }
 
+# Naive baselines (no training): persistence (lag_1) and same time yesterday (lag_96).
+# They ignore the seed and the training size; one run per size keeps every table complete.
+NAIVE_PARAMS = {
+    "base_cfg": {
+        **COMMON_BASE,
+        "model": "naive",
+    },
+    "dataset_sizes": [1000, 10000, 100000],
+    "random_seeds": [42],
+    "lag_cols": ["lag_1", "lag_96"],
+}

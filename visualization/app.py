@@ -9,7 +9,7 @@ import altair as alt
 import matplotlib.pyplot as plt
 
 # --- Global Configurations ---
-model_colors = {'linear': '#4A90E2', 'mlp': '#F5A623', 'rf': '#7ED321'}
+model_colors = {'naive': '#9B9B9B', 'linear': '#4A90E2', 'mlp': '#F5A623', 'rf': '#7ED321'}
 
 
 # --- Page Configuration ---
@@ -18,7 +18,8 @@ st.set_page_config(page_title="ML Model Performance Analysis", layout="wide")
 
 # --- Environment Setup ---
 current_dir = os.path.dirname(os.path.abspath(__file__))
-RESULT_CSV = os.path.join(current_dir, "summary_results.csv")
+# Latest benchmark results written by `python -m main`
+RESULT_CSV = os.path.join(os.path.dirname(current_dir), "results", "summary_results.csv")
 
 
 # --- Utility Functions ---
@@ -67,9 +68,9 @@ def load_and_process_data():
     df_proc['lr'] = df_proc['hp_dict'].apply(lambda x: x.get('lr', 'N/A'))
     df_proc['n_estimators'] = df_proc['hp_dict'].apply(lambda x: x.get('n_estimators', 'N/A'))
     df_proc['max_depth'] = df_proc['hp_dict'].apply(lambda x: x.get('max_depth', 'unlimit'))
+    df_proc['lag_col'] = df_proc['hp_dict'].apply(lambda x: x.get('lag_col', 'N/A'))
 
-    if 'resource_efficiency' in df_proc.columns:
-        df_proc = df_proc.sort_values(by='resource_efficiency', ascending=False).reset_index(drop=True)
+    df_proc = df_proc.sort_values(by='rmse').reset_index(drop=True)
 
     return raw_data, df_proc
 
@@ -82,16 +83,16 @@ with st.sidebar:
     st.subheader("Global SLA Constraints")
 
     if not df.empty:
-        # Dynamic boundary detection for RAM (MB)
-        actual_min_ram = float(df['peak_ram'].min())
-        actual_max_ram = float(df['peak_ram'].max())
+        # Memory = increase in process RSS during training, measured in a fresh process per run
+        actual_min_ram = float(df['rss_delta_mb'].min())
+        actual_max_ram = float(df['rss_delta_mb'].max())
         ram_step = 0.00001 if actual_min_ram < 0.1 else 1.0
         slider_min_ram = actual_min_ram
         slider_max_ram = max(actual_max_ram, slider_min_ram + 0.1)
 
-        # Dynamic boundary detection for Latency (ms)
-        actual_min_lat = float(df['inference_time'].min() * 1000)
-        actual_max_lat = float(df['inference_time'].max() * 1000)
+        # Latency = median time to predict one row
+        actual_min_lat = float(df['latency_ms_median'].min())
+        actual_max_lat = float(df['latency_ms_median'].max())
         slider_min_lat = actual_min_lat
         slider_max_lat = max(actual_max_lat, slider_min_lat + 1.0)
     else:
@@ -99,7 +100,7 @@ with st.sidebar:
         slider_min_lat, slider_max_lat = 1.0, 50.0
 
     ram_limit = st.slider(
-        "RAM Budget (MB)",
+        "Memory Budget (MB, training increase)",
         min_value=slider_min_ram,
         max_value=slider_max_ram,
         value=slider_max_ram,
@@ -108,20 +109,18 @@ with st.sidebar:
     )
 
     latency_limit_ms = st.slider(
-        "Latency Limit (ms)",
+        "Latency Limit (ms per row, median)",
         min_value=slider_min_lat,
         max_value=slider_max_lat,
         value=slider_max_lat,
-        step=0.1,
-        format="%.1f"
+        step=0.001,
+        format="%.3f"
     )
-
-    latency_limit_sec = latency_limit_ms / 1000
 
     if not df.empty:
         df_filtered = df[
-            (df['peak_ram'] <= ram_limit) &
-            (df['inference_time'] <= latency_limit_sec)
+            (df['rss_delta_mb'] <= ram_limit) &
+            (df['latency_ms_median'] <= latency_limit_ms)
             ].copy()
     else:
         df_filtered = pd.DataFrame()
@@ -133,16 +132,16 @@ with st.sidebar:
 
     with st.sidebar:
         if st.session_state.page_state == "dashboard":
-            st.button("View Raw Data", on_click=switch_page, args=("raw_data",), use_container_width=True)
+            st.button("View Raw Data", on_click=switch_page, args=("raw_data",), width="stretch")
         else:
-            st.button("Back to Dashboard", on_click=switch_page, args=("dashboard",), use_container_width=True)
+            st.button("Back to Dashboard", on_click=switch_page, args=("dashboard",), width="stretch")
 
 
 # --- Main Rendering ---
 if st.session_state.page_state == "raw_data":
     st.markdown("## Raw Experimental Data (CSV)")
     st.caption("Unprocessed raw experimental logs.")
-    st.dataframe(df_org, use_container_width=True, height=850)
+    st.dataframe(df_org, width="stretch", height=850)
 
 else:
     st.markdown('## Performance Analysis & Resource Trade-offs for Power Load Forecasting')
@@ -161,14 +160,14 @@ else:
 
         with c_ctx2:
             global_target_obj = st.radio(
-                "Optimization Target", ["Accuracy (Min RMSE)", "Resource Efficiency (Score)"],
+                "Optimization Target", ["Accuracy (Min RMSE)", "Speed (Min latency)"],
                 horizontal=True,
-                help="Accuracy: selects the model with lowest error. Efficiency: balances accuracy and hardware overhead."
+                help="Accuracy: lowest RMSE on the fixed test window. Speed: lowest median per-row latency."
             )
         is_rmse_mode = "Accuracy" in global_target_obj
         df_metrics = df_filtered[df_filtered['dataset_size'] == global_target_size].copy()
-        sort_col = 'rmse' if is_rmse_mode else 'resource_efficiency'
-        df_metrics = df_metrics.sort_values(by=sort_col, ascending=is_rmse_mode).reset_index(drop=True)
+        sort_col = 'rmse' if is_rmse_mode else 'latency_ms_median'
+        df_metrics = df_metrics.sort_values(by=sort_col, ascending=True).reset_index(drop=True)
 
         # Metric Cards
         m1, m2, m3, m4 = st.columns(4)
@@ -177,11 +176,11 @@ else:
                 st.metric(
                     label="🏆 Best Model",
                     value=df_metrics.iloc[0]['model'].upper(),
-                    help="The top-ranked model based on your selected optimization target. If 'Accuracy' is selected, this shows the model with the lowest RMSE. If 'Resource Efficiency' is selected, this shows the model with the highest efficiency score."
+                    help="Top-ranked run for the selected target: lowest RMSE (Accuracy) or lowest median latency (Speed)."
                 )
 
             with m2:
-                unit = "MW"
+                unit = "kW"
                 st.metric(
                     label=f"📉 Avg. Error (RMSE, {unit})",
                     value=f"{df_metrics['rmse'].mean():.4f}",
@@ -189,18 +188,24 @@ else:
                 )
 
             with m3:
-                max_efficiency = df_metrics['resource_efficiency'].max()
-                st.metric(
-                    label="⚡ Peak Efficiency (REI)",
-                    value=f"{max_efficiency:,.2f}",
-                    help="Unit: Custom Score. Calculated as: 100 / (RMSE * Inference Time(s) * Memory(GB)). This index reflects the predictive accuracy achieved per unit of hardware cost."
-                )
+                persistence = df[(df['model'] == 'naive') & (df['lag_col'] == 'lag_1')]['rmse']
+                best_rmse = df_metrics['rmse'].min()
+                if not persistence.empty:
+                    base = float(persistence.iloc[0])
+                    st.metric(
+                        label="📏 Best RMSE vs Persistence",
+                        value=f"{best_rmse:.2f} kW",
+                        delta=f"{(best_rmse - base) / base * 100:+.1f}% vs {base:.2f}",
+                        delta_color="inverse",
+                        help="Persistence = predict the last 15-minute value (lag_1), no model. Negative means the best run beats it."
+                    )
 
             with m4:
+                total_at_size = int((df['dataset_size'] == global_target_size).sum())
                 st.metric(
-                    label="🧪 SLA Compliance",
-                    value=f"{len(df_metrics)} / 66",
-                    help=f"Out of 66 experiments conducted at this data scale, {len(df_metrics)} meet your specified SLA constraints. Currently, {len(df_filtered)} models across all scales meet the global constraints."
+                    label="🧪 Within Budget",
+                    value=f"{len(df_metrics)} / {total_at_size}",
+                    help=f"Runs at this training size that meet the memory and latency limits. {len(df_filtered)} runs across all sizes meet them."
                 )
 
         st.divider()
@@ -227,7 +232,11 @@ else:
                         st.divider()
                         for m_name in model_filter:
                             st.markdown(f"**{m_name.upper()} Config**")
-                            if m_name == 'linear':
+                            if m_name == 'naive':
+                                avail_lags = sorted(df[df['model'] == 'naive']['lag_col'].dropna().unique())
+                                targets['lag_col'] = st.radio("Baseline", options=avail_lags, horizontal=True,
+                                                              key="n_l", help="lag_1 = persistence, lag_96 = same time yesterday")
+                            elif m_name == 'linear':
                                 avail_alphas = sorted(df[df['model'] == 'linear']['alpha'].dropna().unique())
                                 targets['alpha'] = st.select_slider("Regularization (Alpha)", options=avail_alphas,
                                                                     key="l_a")
@@ -251,6 +260,7 @@ else:
             with layout_r:
                 if model_filter:
                     def filter_logic(row):
+                        if row['model'] == 'naive': return row['lag_col'] == targets.get('lag_col')
                         if row['model'] == 'linear': return row['alpha'] == targets.get('alpha')
                         if row['model'] == 'mlp': return row['layers'] == targets.get('layers') and row[
                             'dropout'] == targets.get('dropout')
@@ -269,7 +279,7 @@ else:
                     scenario_df = scenario_df[scenario_df.apply(filter_logic, axis=1)]
 
                     if not scenario_df.empty:
-                        scenario_df = scenario_df.sort_values(by=sort_col, ascending=is_rmse_mode).reset_index(
+                        scenario_df = scenario_df.sort_values(by=sort_col, ascending=True).reset_index(
                             drop=True)
                         best_r = scenario_df.iloc[0]
 
@@ -283,13 +293,13 @@ else:
 
                             st.write(f"**Scale**: {global_target_size} Rows")
                             st.write(f"**{sort_col.upper()}**: {best_r[sort_col]:.4f}")
-                            st.write(f"**Latency**: {best_r['inference_time'] * 1000:.2f} ms")
+                            st.write(f"**Latency**: {best_r['latency_ms_median']:.3f} ms per row (median)")
 
                         st.markdown(f"##### 📈 Performance Distribution")
 
                         color_scale = alt.Scale(
-                            domain=['linear', 'mlp', 'rf'],
-                            range=['#A5D8FF', '#FFD8A8', '#B2F2BB']
+                            domain=['naive', 'linear', 'mlp', 'rf'],
+                            range=['#D9D9D9', '#A5D8FF', '#FFD8A8', '#B2F2BB']
                         )
 
                         box_chart = alt.Chart(scenario_df).mark_boxplot(
@@ -316,7 +326,7 @@ else:
                             color=alt.Color('model:N', scale=color_scale, legend=None)
                         ).properties(height=220)
 
-                        st.altair_chart(box_chart, use_container_width=True)
+                        st.altair_chart(box_chart, width="stretch")
 
                         st.markdown(f"##### 📊 {sort_col.upper()} Comparative Benchmark")
                         with st.container(border=True):
@@ -340,13 +350,13 @@ else:
                                     )
                                 ),
                                 color=alt.Color('model:N', scale=color_scale, legend=None),
-                                tooltip=['model', 'rmse', 'inference_time']
+                                tooltip=['model', 'rmse', 'latency_ms_median']
                             ).properties(height=160).configure_view(strokeOpacity=0, stroke=None
                                 ).configure_axis(grid=False, domain=False,
                                 ticks=False, gridWidth=0,
                                 gridColor='transparent')
 
-                            st.altair_chart(bar_chart, use_container_width=True)
+                            st.altair_chart(bar_chart, width="stretch")
 
                     else:
                         st.warning("No data matches the selected parameters.")
@@ -367,18 +377,18 @@ else:
 
                 st.caption("Observe average RMSE across different memory footprints under current parameters.")
 
-                plot_df = df_metrics.groupby(['model', 'peak_ram'], as_index=False)['rmse'].mean()
+                plot_df = df_metrics.groupby(['model', 'rss_delta_mb'], as_index=False)['rmse'].mean()
                 fig1, ax1 = plt.subplots(figsize=(10, 6))
-                sns.scatterplot(data=plot_df, x='peak_ram', y='rmse', hue='model',
+                sns.scatterplot(data=plot_df, x='rss_delta_mb', y='rmse', hue='model',
                                 palette=model_colors, s=80, alpha=0.8, edgecolor='#666666', linewidth=0.5, ax=ax1)
 
                 if scale_option == "Log":
                     ax1.set_xscale('log')
-                    ax1.set_xlabel("Peak RAM (MB) - Log Scale")
+                    ax1.set_xlabel("Training memory increase (MB) - Log Scale")
                 else:
-                    ax1.set_xlabel("Peak RAM (MB)")
+                    ax1.set_xlabel("Training memory increase (MB)")
 
-                ax1.set_ylabel("Average RMSE")
+                ax1.set_ylabel("Average RMSE (kW)")
                 ax1.set_ylim(0, None)
                 sns.despine()
                 st.pyplot(fig1)
@@ -393,7 +403,7 @@ else:
                 st.caption("Training time vs dataset size (1k-100k).")
 
                 fig2, ax2 = plt.subplots(figsize=(10, 6))
-                sns.lineplot(data=df_filtered, x='dataset_size', y='train_time', hue='model',
+                sns.lineplot(data=df_filtered, x='dataset_size', y='train_time_s', hue='model',
                              palette=model_colors, marker='o', markersize=6, linewidth=2, ax=ax2)
 
                 if c2_view == "Log":
@@ -412,38 +422,47 @@ else:
 
             with c3:
                 st.subheader("⏱️ Inference Latency Distribution")
-                st.caption("Stability Check: RF's long tail indicates higher uncertainty in execution time.")
+                st.caption("Median time to predict one row (200 rows × 5 rounds per run).")
                 fig3, ax3 = plt.subplots(figsize=(10, 6))
-                sns.violinplot(data=df_filtered, x='model', y='inference_time',
+                sns.violinplot(data=df_filtered, x='model', y='latency_ms_median', hue='model', legend=False,
                                palette=model_colors, inner="quart", cut=0, ax=ax3)
-                ax3.set_ylabel("Latency (s)")
+                ax3.set_ylabel("Latency (ms per row)")
                 ax3.set_ylim(0, None)
                 sns.despine()
                 st.pyplot(fig3)
 
             with c4:
-                st.subheader("💎 Resource Efficiency Index (REI)")
-                st.caption("Darker red indicates higher efficiency. Linear models show significant advantages.")
+                st.subheader("🎯 Median RMSE by Model and Training Size")
+                st.caption("kW on the fixed test window (2014-03-14 to 2015-01-01). naive = persistence and same-time-yesterday.")
 
                 if not df_filtered.empty:
-                    eff_pivot = df_filtered.pivot_table(index='model', columns='dataset_size',
-                                                        values='resource_efficiency', aggfunc='mean')
-                    eff_pivot = eff_pivot.reindex(sorted(eff_pivot.columns), axis=1)
-                    log_eff_pivot = np.log10(eff_pivot)
+                    rmse_pivot = df_filtered.pivot_table(index='model', columns='dataset_size',
+                                                         values='rmse', aggfunc='median')
+                    rmse_pivot = rmse_pivot.reindex(sorted(rmse_pivot.columns), axis=1)
 
                     fig4, ax4 = plt.subplots(figsize=(10, 6))
-                    sns.heatmap(log_eff_pivot, annot=eff_pivot.values, fmt=".2f", cmap="YlOrRd",
-                                linewidths=.8, cbar_kws={'label': 'Log10 Efficiency'}, ax=ax4)
+                    sns.heatmap(rmse_pivot, annot=True, fmt=".1f", cmap="YlOrRd",
+                                linewidths=.8, cbar_kws={'label': 'Median RMSE (kW)'}, ax=ax4)
                     st.pyplot(fig4)
 
         with t3:
-            if not df_filtered.empty:
+            st.markdown("#### 📊 Measured Summary (median per model and training size)")
+            summary_cols = ['rmse', 'mae', 'train_time_s', 'rss_delta_mb', 'model_size_mb', 'latency_ms_median']
+            st.dataframe(df.groupby(['model', 'dataset_size'])[summary_cols].median().round(4),
+                         width="stretch")
+            st.caption("All values come from results/summary_results.csv. Memory = RSS increase during training.")
+
+            show_march = st.toggle("Show March narrative (hard-coded text and simulation, not computed)", value=False)
+            if show_march:
+                st.warning("The text, ratings and 'stress simulation' below were written by hand in March. "
+                           "They are not calculated from the results and may contradict them.")
+            if show_march and not df_filtered.empty:
                 if is_rmse_mode:
                     best_row = df_metrics.iloc[0]
                     main_metric_desc = f"RMSE: {best_row['rmse']:.4f}"
                 else:
                     best_row = df_metrics.iloc[0]
-                    main_metric_desc = f"Efficiency Score: {best_row['resource_efficiency']:.2f}"
+                    main_metric_desc = f"Latency: {best_row['latency_ms_median']:.3f} ms per row"
 
                 best_model = best_row['model'].lower()
 
@@ -468,7 +487,8 @@ else:
                     }
                 }
 
-                curr = insights.get(best_model)
+                curr = insights.get(best_model, {'title': best_model, 'stability': 'Naive baseline: no model.',
+                                                 'scalability': 'No training.', 'deployment': 'Reference only.'})
 
                 st.markdown(f"#### 📡 Deep Diagnostic: Based on {best_model.upper()}")
                 col_diag_1, col_diag_2 = st.columns(2, gap="medium")
@@ -497,8 +517,8 @@ else:
 
                 st.markdown("#### 📋 Industrial Deployment Compatibility Matrix")
 
-                m4_fit = "✅ Perfect Match" if best_row['peak_ram'] < 5 else "❌ Resource Overflow"
-                edge_fit = "✅ Recommended" if (best_row['inference_time'] * 1000) < 30 and best_row['peak_ram'] < 512 else "⚠️ Compression Needed"
+                m4_fit = "✅ Perfect Match" if best_row['rss_delta_mb'] < 5 else "❌ Resource Overflow"
+                edge_fit = "✅ Recommended" if best_row['latency_ms_median'] < 30 and best_row['rss_delta_mb'] < 512 else "⚠️ Compression Needed"
 
                 deployment_matrix = {
                     "Device Tier": ["Low-Power Sensor (ARM M4)", "Edge Gateway (Jetson/Pi)", "Industrial Server (Xeon/GPU)"],
@@ -511,20 +531,20 @@ else:
                 st.divider()
                 st.write(f"### 🧠 Deployment Path Simulator: {best_model.upper()}")
 
-                if st.button("Run Production Stress Simulation", use_container_width=True):
+                if st.button("Run Production Stress Simulation", width="stretch"):
                     with st.status("Simulating on-site deployment...", expanded=True) as status:
                         st.write("Allocating inference buffers for dataset scale...")
                         time.sleep(0.5)
                         st.write(f"Evaluating {best_model.upper()} stability under hardware limits...")
                         time.sleep(0.5)
                         st.write(
-                            f"Peak RAM: {best_row['peak_ram']:.2f} MB | Latency: {best_row['inference_time'] * 1000:.2f} ms")
+                            f"Peak RAM: {best_row['rss_delta_mb']:.2f} MB | Latency: {best_row['latency_ms_median']:.2f} ms")
                         time.sleep(0.3)
                         status.update(label="✅ Simulation Complete", state="complete", expanded=False)
 
                     res_left, res_right = st.columns([1, 2.5])
-                    is_latency_too_high = (best_row['inference_time'] * 1000) > 25
-                    is_ram_too_heavy = best_row['peak_ram'] > 400
+                    is_latency_too_high = best_row['latency_ms_median'] > 25
+                    is_ram_too_heavy = best_row['rss_delta_mb'] > 400
                     is_data_too_large = global_target_size > 50000
                     need_cloud = is_latency_too_high or is_ram_too_heavy or is_data_too_large
 
@@ -538,14 +558,14 @@ else:
 
                         if need_cloud:
                             if is_data_too_large: diag = f"Data throughput ({global_target_size} rows) exceeds standalone edge processing limits."
-                            elif is_ram_too_heavy: diag = f"Peak RAM ({best_row['peak_ram']:.1f}MB) risks PLC memory fragmentation; cloud is safer."
-                            else: diag = f"Latency ({best_row['inference_time'] * 1000:.2f}ms) fails real-time standards (25ms)."
+                            elif is_ram_too_heavy: diag = f"Peak RAM ({best_row['rss_delta_mb']:.1f}MB) risks PLC memory fragmentation; cloud is safer."
+                            else: diag = f"Latency ({best_row['latency_ms_median']:.2f}ms) fails real-time standards (25ms)."
                         else:
                             diag = f"{best_model.upper()} meets all edge deployment criteria, potentially saving 85% bandwidth."
                         st.write(f"**Diagnosis**: {diag}")
                         st.caption("**Technical Note**: Simulation includes Hardware Degradation factors.")
 
-            else:
+            elif show_march:
                 st.warning("⚠️ No data meets current SLA conditions.")
 
     else:

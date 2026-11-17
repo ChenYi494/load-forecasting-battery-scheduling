@@ -8,6 +8,8 @@ import argparse
 import json
 import time
 from collections import defaultdict
+from concurrent.futures import ProcessPoolExecutor
+from multiprocessing import get_context
 
 import pandas as pd
 import torch
@@ -15,8 +17,22 @@ import torch
 from config.params import PATH
 from experiments.run_experiment import run_experiment
 
-config_keys = ["linear_cfg", "mlp_cfg", "rf_cfg"]
+config_keys = ["naive_cfg", "linear_cfg", "mlp_cfg", "rf_cfg"]
 summary_path = os.path.join(PATH["results_folder"], PATH["summary_results"])
+
+
+def set_single_thread():
+    torch.set_num_threads(1)
+    try:
+        torch.set_num_interop_threads(1)
+    except RuntimeError:
+        pass
+
+
+def run_isolated(cfg):
+    """Runs one experiment inside a fresh worker process (see run_all)."""
+    set_single_thread()
+    return run_experiment(cfg)
 
 
 def load_configs():
@@ -60,12 +76,15 @@ def run_all(configs):
         print(f"Resuming: {len(done)} runs already in {summary_path}")
 
     todo = [cfg for cfg in configs if cfg["exp_name"] not in done]
-    for i, cfg in enumerate(todo, 1):
-        print(f"[{i}/{len(todo)}] {cfg['exp_name']}", flush=True)
-        results = run_experiment(cfg)
-        # Append each run immediately so an interrupted run can resume
-        pd.DataFrame([results]).to_csv(summary_path, mode="a", index=False,
-                                       header=not os.path.exists(summary_path))
+    # Every experiment gets a brand-new process: memory measured in a shared process
+    # is distorted by allocations that earlier runs left behind and later runs reuse
+    with ProcessPoolExecutor(max_workers=1, mp_context=get_context("spawn"), max_tasks_per_child=1) as pool:
+        for i, cfg in enumerate(todo, 1):
+            print(f"[{i}/{len(todo)}] {cfg['exp_name']}", flush=True)
+            results = pool.submit(run_isolated, cfg).result()
+            # Append each run immediately so an interrupted run can resume
+            pd.DataFrame([results]).to_csv(summary_path, mode="a", index=False,
+                                           header=not os.path.exists(summary_path))
     print("All runs done. Results:", summary_path)
 
 
@@ -74,12 +93,7 @@ if __name__ == "__main__":
     parser.add_argument("--estimate", action="store_true", help="time a sample of runs and estimate the total")
     args = parser.parse_args()
 
-    torch.set_num_threads(1)
-    try:
-        torch.set_num_interop_threads(1)
-    except RuntimeError:
-        pass
-
+    set_single_thread()
     configs = load_configs()
     if args.estimate:
         estimate(configs)

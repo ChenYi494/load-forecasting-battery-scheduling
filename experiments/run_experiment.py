@@ -6,6 +6,7 @@ from data.dataset import load_dataset
 from models.linear_regression import LinearModel
 from models.fully_connected_MLP import MLPModel
 from models.random_forest import RFModel
+from models.naive import NaiveModel
 from training.trainer import train_and_evaluate
 from utils.get_hardware_profile import get_hardware_profile
 
@@ -25,7 +26,7 @@ def run_experiment(cfg):
     )
 
     # Model-Specific Data Routing
-    if cfg["model"] in ["rf", "linear"]:
+    if cfg["model"] in ["rf", "linear", "naive"]:
         # Merge validation set back into training for models that do not require
         # real-time monitoring (Early Stopping), maximizing sample utilization.
         X_train = np.r_[X_train, X_val]
@@ -33,7 +34,7 @@ def run_experiment(cfg):
         print(f"[{cfg['model'].upper()}] Validation set merged into training. Total samples: {len(X_train)}")
 
     # Step 2: Model Factory Initialization
-    model_pro = get_model(cfg, X_train)
+    model_pro = get_model(cfg, X_train, spans)
 
     # Step 3: Training and Resource Profiling
     results = train_and_evaluate(
@@ -41,7 +42,7 @@ def run_experiment(cfg):
     )
 
     # Final Quantitative Summary Construction
-    actual_val_size = 0 if cfg["model"] in ["rf", "linear"] else len(X_val)
+    actual_val_size = 0 if cfg["model"] in ["rf", "linear", "naive"] else len(X_val)
     summary = {
         # === Metadata & Environment ===
         "exp_name": cfg["exp_name"],
@@ -81,7 +82,7 @@ def run_experiment(cfg):
     return summary
 
 
-def get_model(cfg, X_train):
+def get_model(cfg, X_train, spans):
     if cfg["model"] == "linear":
         return LinearModel(
             reg_type=cfg.get("regularization", "none"),
@@ -102,6 +103,13 @@ def get_model(cfg, X_train):
             min_samples_leaf=cfg.get("min_samples_leaf", 1),
             max_features=cfg.get("max_features", 1.0),
             random_seed=cfg["random_seed"]
+        )
+    elif cfg["model"] == "naive":
+        return NaiveModel(
+            lag_col=cfg["lag_col"],
+            feature_names=spans["feature_names"],
+            feature_mean=spans["feature_mean"],
+            feature_scale=spans["feature_scale"]
         )
     else:
         return "unknown"

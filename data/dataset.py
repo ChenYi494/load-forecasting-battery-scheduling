@@ -55,5 +55,9 @@ def load_dataset(dataset_path, target_col, test_ratio=0.2, dataset_size=0, shuff
         "train_end": str(val_df['timestamp'].iloc[-1]),
         "test_start": str(test_df['timestamp'].iloc[0]),
         "test_end": str(test_df['timestamp'].iloc[-1]),
+        # Needed by the naive baselines to map standardized lag features back to kW
+        "feature_names": list(scaler.feature_names_in_),
+        "feature_mean": scaler.mean_.tolist(),
+        "feature_scale": scaler.scale_.tolist(),
     }
     return X_train, X_val, X_test, y_train, y_val, y_test, spans

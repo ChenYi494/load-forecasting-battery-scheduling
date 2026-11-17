@@ -93,7 +93,7 @@ def train_and_evaluate(model_pro, X_train, X_val, X_test, y_train, y_val, y_test
     train_start_time = time.time()
     with PeakRSSMonitor() as mem:
         start = time.perf_counter()
-        if model_type in ["linear", "rf"]:
+        if model_type in ["linear", "rf", "naive"]:
             model_pro.train(X_train, y_train)
             eff_epochs = 1
         elif model_type == "mlp":
