@@ -7,6 +7,7 @@ import { day, int } from './format.ts'
 import Comparison from './sections/Comparison.tsx'
 import DataSize from './sections/DataSize.tsx'
 import Forecast from './sections/Forecast.tsx'
+import Methods from './sections/Methods.tsx'
 import Overview from './sections/Overview.tsx'
 
 const TABS = [
@@ -84,12 +85,7 @@ export default function App() {
             {tab === 'comparison' && <Comparison results={results} filters={filters} passing={passing} />}
             {tab === 'data-size' && <DataSize results={results} filters={filters} passing={passing} />}
             {tab === 'forecast' && <Forecast results={results} />}
-            {tab === 'methods' && (
-              <section className="panel">
-                <h2>{TABS.find((t) => t.id === tab)!.label}</h2>
-                <p className="muted">Built in the next step.</p>
-              </section>
-            )}
+            {tab === 'methods' && <Methods results={results} />}
             <footer className="footer">
               Data: <a href={results.meta.dataset_url}>{results.meta.dataset}</a> · generated{' '}
               {results.meta.generated_at.slice(0, 10)}
