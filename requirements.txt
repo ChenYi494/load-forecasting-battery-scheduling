@@ -7,9 +7,3 @@ torch==2.15.0
 joblib==1.6.0
 psutil==7.2.2
 pytz==2026.6
-
-# Dashboard (visualization/app.py)
-streamlit==1.67.0
-altair==6.3.0
-matplotlib==3.11.2
-seaborn==0.13.2
