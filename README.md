@@ -2,7 +2,7 @@
 
 How much do linear regression, an MLP and a random forest improve on simply repeating the last value when forecasting the next 15 minutes of electricity load, and what do they cost to train and run?
 
-**Results site:** _[added after deployment]_ — every number on it is computed from `results/summary_results.csv`.
+**Results site:** a React dashboard in `web/`; run it locally with `cd web && npm install && npm run dev`. Every number on it is computed from `results/summary_results.csv`.
 
 ## Key results
 
