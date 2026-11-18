@@ -1,0 +1,68 @@
+[
+  {
+    "exp_name": "naive_ds1000_lag_1_001",
+    "dataset_path": "data/source_data.parquet",
+    "target_col": "load",
+    "train_ratio": 0.8,
+    "shuffle": false,
+    "model": "naive",
+    "dataset_size": 1000,
+    "random_seed": 42,
+    "lag_col": "lag_1"
+  },
+  {
+    "exp_name": "naive_ds1000_lag_96_002",
+    "dataset_path": "data/source_data.parquet",
+    "target_col": "load",
+    "train_ratio": 0.8,
+    "shuffle": false,
+    "model": "naive",
+    "dataset_size": 1000,
+    "random_seed": 42,
+    "lag_col": "lag_96"
+  },
+  {
+    "exp_name": "naive_ds10000_lag_1_003",
+    "dataset_path": "data/source_data.parquet",
+    "target_col": "load",
+    "train_ratio": 0.8,
+    "shuffle": false,
+    "model": "naive",
+    "dataset_size": 10000,
+    "random_seed": 42,
+    "lag_col": "lag_1"
+  },
+  {
+    "exp_name": "naive_ds10000_lag_96_004",
+    "dataset_path": "data/source_data.parquet",
+    "target_col": "load",
+    "train_ratio": 0.8,
+    "shuffle": false,
+    "model": "naive",
+    "dataset_size": 10000,
+    "random_seed": 42,
+    "lag_col": "lag_96"
+  },
+  {
+    "exp_name": "naive_ds100000_lag_1_005",
+    "dataset_path": "data/source_data.parquet",
+    "target_col": "load",
+    "train_ratio": 0.8,
+    "shuffle": false,
+    "model": "naive",
+    "dataset_size": 100000,
+    "random_seed": 42,
+    "lag_col": "lag_1"
+  },
+  {
+    "exp_name": "naive_ds100000_lag_96_006",
+    "dataset_path": "data/source_data.parquet",
+    "target_col": "load",
+    "train_ratio": 0.8,
+    "shuffle": false,
+    "model": "naive",
+    "dataset_size": 100000,
+    "random_seed": 42,
+    "lag_col": "lag_96"
+  }
+]

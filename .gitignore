@@ -19,8 +19,9 @@ Thumbs.db
 # =========================
 # Project Specific - Experiments
 # =========================
-experiments/results/
-experiments/configs/
+results/models/
+results/_old_experiments_results/
+run.log
 
 # model
 *.pkl
@@ -32,13 +33,9 @@ experiments/configs/
 # Project Specific - Data
 # =========================
 LD2011_2014.txt
+data/raw/
 
 # Exclude data artifacts but keep the pre-processed dataset
 data/*
 !data/source_data.parquet
 !data/dataset.py
-
-# =========================
-# Project Specific - Visualization
-# =========================
-!visualization/summary_result.csv
