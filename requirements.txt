@@ -10,3 +10,4 @@ pytz==2026.6
 
 # Tests
 pytest==9.2.0
+pyyaml==6.0.3

@@ -2,7 +2,7 @@
 
     python -m benchmark.dayahead.train
 
-Writes predictions/dayahead_predictions.parquet (one column per method, seed 42) and
+Writes predictions/dayahead_predictions.parquet (one column per method and seed, e.g. mlp_s123) and
 results/dayahead_results.csv (one row per method and seed).
 """
 import os
@@ -106,8 +106,7 @@ def main():
                     model.train(X_all, y_all)
                 train_time = time.perf_counter() - start
             pred = model.predict(X_test)
-            if seed == SEEDS[0]:
-                predictions[name] = pred
+            predictions[f"{name}_s{seed}"] = pred
             row = {"method": name, "seed": seed, "train_time_s": round(train_time, 4),
                    "rss_delta_mb": round(mem.peak_mb - mem.baseline_mb, 2),
                    "predict_ms_per_day": round(per_day_latency_ms(model, X_test), 4), **accuracy(test, pred)}

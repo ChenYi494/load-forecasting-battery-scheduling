@@ -1,0 +1,7 @@
+# Battery assumptions (not from a data sheet). Sizes scale with the client's mean load so the
+# battery is meaningful for MT_200; the backtest also reports 1, 2 and 4 hour batteries.
+capacity_hours_of_mean_load: 2.0     # usable energy = 2 h x mean load
+power_fraction_of_mean_load: 0.5     # max charge/discharge power = 0.5 x mean load
+round_trip_efficiency: 0.90          # split evenly between charging and discharging
+start_soc_fraction: 0.5              # each day starts and ends at this state of charge
+cycle_cost_per_kwh: 0.0              # degradation cost per kWh discharged; 0 in the base case
