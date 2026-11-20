@@ -157,6 +157,8 @@ h2 { font-family: var(--f-display); font-size: 19px; }
 .seg button:hover { color: var(--fg); }
 .seg button.on { background: var(--surface); color: var(--fg); box-shadow: 0 1px 2px rgba(15, 23, 42, 0.14); }
 
+.desk.wide { grid-template-columns: minmax(0, 1fr); }
+.desk.wide .content { grid-column: 1; }
 .content {
   grid-column: 2;
   grid-row: 2;
@@ -192,6 +194,9 @@ h2 { font-family: var(--f-display); font-size: 19px; }
 .facts dd { margin: 0; }
 .fact { display: contents; }
 .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; }
+.field-inline { display: flex; align-items: center; gap: 8px; font-size: 13.5px; }
+.field-inline span { color: var(--muted); }
+.field-inline select { max-width: 100%; padding: 6px 8px; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface); }
 .note { font-size: 13.5px; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--accent-soft); border-radius: 0 8px 8px 0; max-width: 90ch; }
 .range { color: var(--muted); font-size: 12px; }
 .series-picker { border: 0; padding: 0; margin: 0; display: flex; flex-wrap: wrap; gap: 8px 18px; }

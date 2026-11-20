@@ -5,6 +5,7 @@ import {
   DataZoomComponent,
   GridComponent,
   LegendComponent,
+  MarkAreaComponent,
   MarkLineComponent,
   TooltipComponent,
 } from 'echarts/components'
@@ -17,6 +18,7 @@ echarts.use([
   DataZoomComponent,
   GridComponent,
   LegendComponent,
+  MarkAreaComponent,
   MarkLineComponent,
   TooltipComponent,
   CanvasRenderer,

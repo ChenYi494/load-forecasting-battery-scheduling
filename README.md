@@ -68,6 +68,38 @@ The benchmark was first built in **March 2026**. A review in **November 2026** f
 
 Conclusions that changed: the MLP's March error at 1,000 rows (118 kW) was a bug, and the small random forest went from best to worst once it had to forecast a later season. March numbers came from different test periods, so they are not a like-for-like comparison.
 
+## Task B: day-ahead forecasts and battery decisions
+
+Does a better forecast give a cheaper electricity bill? Each test day, every method forecasts all 96 intervals of the next day using data up to 23:45 the day before (tests check that no feature reads the forecast day). A battery schedule is then planned from that forecast with dynamic programming, run against the actual load, and billed with the Taipower high-voltage two-stage time-of-use tariff (`configs/tariff.yaml`, copied from Taipower's tariff tables effective 2025-10-01). The score is the share of the perfect-foresight saving that a forecast keeps.
+
+Base case: 288 test days, battery 1,728 kWh / 432 kW (2 h of mean load, an assumption), contract chosen from the last 12 months of training data. The DP agrees with an exact linear program (SciPy HiGHS) to within 0.15% on real test days.
+
+| | Plain plan | Discharge at highest forecast load |
+|---|---|---|
+| Perfect-foresight saving | NT$1,150,098 (4.1% of the bill) | same |
+| Share kept by the 5 forecasts (3 seeds for MLP and random forest) | 80.2–81.4% | 88.5–92.1% |
+| Excess-demand charge of the forecasts | NT$211,709–227,956 | NT$96,370–135,371 |
+
+What this shows:
+
+- Most of the saving comes from buying at the off-peak price and using it at the peak price, which needs no forecast. Forecast errors show up almost only as excess-demand charges.
+- With the plain plan the choice of forecast barely matters: the spread across seeds of one model is as wide as the gap between models, and the method with the lowest RMSE (linear regression) is not the cheapest.
+- Inside one price period every interval costs the same, so when the forecast stays under the contract the plain plan may use the battery early and have nothing left for the real peak. A tiny cost on high grid draw makes it discharge where the forecast load is highest. This planner change is worth about ten points; the choice of forecast, a few.
+- A safety margin (forecast + a quantile of its past error, fixed on the 90 days before the test period) lowers the excess charge but costs about as much in lost arbitrage.
+- Outside summer, most overruns come from recharging in the midday off-peak gap between the two peak periods when the midday load is higher than forecast; the planner change does not affect these.
+
+This quantifies a known idea (value-oriented forecasting): accuracy metrics such as RMSE do not rank forecasts by the value of the decisions made with them.
+
+```bash
+python -m benchmark.dayahead.train       # day-ahead forecasts, 3 seeds -> predictions/, results/dayahead_results.csv
+python -m benchmark.dayahead.calibrate   # errors on the 90 days before the test period (for the margin)
+python -m benchmark.decision.backtest    # contract, battery sizes, tariff shifts -> results/decision_*.csv (about 17 min)
+python -m benchmark.decision.margin      # forecast + safety margin
+python -m benchmark.decision.flatten     # discharge at the highest forecast load
+python -m benchmark.decision.export      # -> web/public/decision.json (Day-ahead, Battery decisions, Backtest tabs)
+python -m pytest -q tests                # leakage, DP vs LP, tariff and planner tests
+```
+
 ## Run it
 
 Python 3.12 and Node 22.
@@ -99,7 +131,12 @@ benchmark/                  experiment code (Python package)
 ├── experiments/            grids, one run, generated configs
 ├── run.py                  runs every config, each in its own process
 ├── export.py               results -> web/public/results.json
+├── dayahead/               task B: day-ahead features, training, calibration
+├── decision/               tariff, battery, DP planner, LP check, backtest, margin, flatten, export
 └── check_splits.py · hardware.py · time_tools.py
+configs/                    tariff.yaml (Taipower), battery.yaml
+tests/                      pytest: leakage, DP vs LP, tariff, planner
+predictions/                day-ahead forecasts and battery schedules (parquet)
 data/                       source_data.parquet (raw download in data/raw/, not committed)
 results/                    summary_results.csv (current), before/ (March 2026)
 web/                        results site (React, TypeScript, ECharts)
@@ -108,7 +145,9 @@ web/                        results site (React, TypeScript, ECharts)
 ## Limitations
 
 - One client and one test period; a rolling evaluation or other load profiles may give different results.
-- Next-15-minute forecasting with `lag_1` is easy for linear models, which is why persistence is hard to beat. Day-ahead forecasting would be harder.
+- Next-15-minute forecasting with `lag_1` is easy for linear models, which is why persistence is hard to beat. Day-ahead forecasting (task B) is harder: best RMSE about 62 kW against 34 kW.
+- Task B applies a Taiwanese tariff to a Portuguese load profile: an illustrative price structure, not a real bill. The results depend on it; heavy excess-demand charges are what make forecast errors costly here. Taiwanese public holidays are not applied.
+- The battery size and efficiency are assumptions; the planner works one day at a time and does not know the month's highest demand so far.
 - Timings come from one laptop; absolute values will differ on other hardware.
 - Memory includes temporary training allocations, not only the model.
 - Hyperparameter grids are small; no model was tuned beyond them.

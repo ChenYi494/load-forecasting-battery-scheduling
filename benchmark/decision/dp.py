@@ -27,8 +27,14 @@ class Schedule:
     cost: float                # planning objective (energy + cycling + overload weight)
 
 
-def schedule_day(load_kw, price, contract_kw, battery: Battery, overload_weight, power_steps=20):
-    """overload_weight: TWD per kW above the contract, per slot (scalar or array of 96)."""
+def schedule_day(load_kw, price, contract_kw, battery: Battery, overload_weight, power_steps=20, flatten=0.0):
+    """overload_weight: TWD per kW above the contract, per slot (scalar or array of 96).
+
+    flatten: weight of a small grid_kw**2 term. Inside one price block (e.g. the 15-hour summer peak)
+    every slot costs the same, so when the planned load stays under the contract the timing of
+    discharge and charge is arbitrary. With a tiny weight the plan discharges at the highest planned
+    load and charges at the lowest, and the price-driven decisions are unchanged.
+    """
     load_kw = np.asarray(load_kw, dtype=float)
     n = len(load_kw)
     weight = np.broadcast_to(np.asarray(overload_weight, dtype=float), (n,))
@@ -56,7 +62,7 @@ def schedule_day(load_kw, price, contract_kw, battery: Battery, overload_weight,
     for t in range(n - 1, -1, -1):
         grid = load_kw[t] + charge - discharge
         cost = (price[t] * grid * SLOT_HOURS + battery.cycle_cost_per_kwh * discharge * SLOT_HOURS
-                + weight[t] * np.maximum(0.0, grid - contract_kw))
+                + weight[t] * np.maximum(0.0, grid - contract_kw) + flatten * grid ** 2 * SLOT_HOURS)
         cost = np.where(discharge <= load_kw[t] + EPS, cost, np.inf)  # no export to the grid
         best = np.full(levels + 1, np.inf)
         choice = np.zeros(levels + 1, dtype=int)

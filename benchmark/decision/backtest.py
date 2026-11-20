@@ -47,7 +47,7 @@ def complete_days(series):
     return list(counts[counts == SLOTS_PER_DAY].index)
 
 
-def run_days(days, series, plan_source, contract, battery, tariff, power_steps=POWER_STEPS):
+def run_days(days, series, plan_source, contract, battery, tariff, power_steps=POWER_STEPS, flatten=0.0):
     """Plan every day from plan_source (None = no battery) and settle against the actual series."""
     grid, charge, discharge, soc = [], [], [], []
     for day in days:
@@ -59,7 +59,7 @@ def run_days(days, series, plan_source, contract, battery, tariff, power_steps=P
         else:
             planned_load = np.clip(plan_source.loc[ts].to_numpy(), 0.0, None)
             plan = schedule_day(planned_load, tariff.energy_price(ts), contract, battery,
-                                OVERLOAD_MULTIPLE * tariff.excess_rate(ts), power_steps=power_steps)
+                                OVERLOAD_MULTIPLE * tariff.excess_rate(ts), power_steps=power_steps, flatten=flatten)
             c, d, s = plan.charge_kw, plan.discharge_kw, plan.soc_kwh
         grid.append(actual_grid(actual, c, d))
         charge.append(c)
@@ -93,12 +93,12 @@ def choose_contract(days, series, tariff, battery=None):
     return float(fine[int(np.argmin([total(c) for c in fine]))])
 
 
-def evaluate(test_days, series, forecasts, tariff, battery, contract_no_battery, contract_battery):
+def evaluate(test_days, series, forecasts, tariff, battery, contract_no_battery, contract_battery, flatten=0.0):
     """Annual bill for every strategy on the test days; forecasts maps strategy name -> forecast series."""
     runs = {"no_battery": (run_days(test_days, series, None, 0.0, None, tariff), contract_no_battery, None),
-            "perfect_foresight": (run_days(test_days, series, series, contract_battery, battery, tariff), contract_battery, battery)}
+            "perfect_foresight": (run_days(test_days, series, series, contract_battery, battery, tariff, flatten=flatten), contract_battery, battery)}
     for name in forecasts:
-        runs[name] = (run_days(test_days, series, forecasts[name], contract_battery, battery, tariff), contract_battery, battery)
+        runs[name] = (run_days(test_days, series, forecasts[name], contract_battery, battery, tariff, flatten=flatten), contract_battery, battery)
     rows, monthly = [], []
     for name, (run, contract, bat) in runs.items():
         b = bill(run, contract, tariff, bat)

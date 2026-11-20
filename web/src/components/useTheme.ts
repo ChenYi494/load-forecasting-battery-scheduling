@@ -19,6 +19,7 @@ function read(): ThemeColors {
     surface: v('--surface'),
     series: {
       actual: v('--fg'),
+      perfect: v('--accent'),
       naive: v('--c-naive'),
       linear: v('--c-linear'),
       mlp: v('--c-mlp'),
