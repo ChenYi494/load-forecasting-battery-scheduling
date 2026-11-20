@@ -6,6 +6,7 @@ import { loadDecision, type Decision } from './decision.ts'
 import { defaultFilters, withinBudget, type Filters } from './filters.ts'
 import { day, int } from './format.ts'
 import Backtest from './sections/Backtest.tsx'
+import Clients from './sections/Clients.tsx'
 import Comparison from './sections/Comparison.tsx'
 import DataSize from './sections/DataSize.tsx'
 import DayAhead from './sections/DayAhead.tsx'
@@ -23,10 +24,11 @@ const TABS = [
   { id: 'day-ahead', label: 'Day-ahead' },
   { id: 'decisions', label: 'Battery decisions' },
   { id: 'backtest', label: 'Backtest' },
+  { id: 'clients', label: 'Ten clients' },
 ] as const
 type TabId = (typeof TABS)[number]['id']
 // Tabs for task B and the decision layer: no training-size budget, so no sidebar
-const DECISION_TABS: TabId[] = ['day-ahead', 'decisions', 'backtest']
+const DECISION_TABS: TabId[] = ['day-ahead', 'decisions', 'backtest', 'clients']
 
 function tabFromHash(): TabId {
   const id = window.location.hash.slice(1)
@@ -110,6 +112,14 @@ export default function App() {
             {decision && tab === 'day-ahead' && <DayAhead decision={decision} />}
             {decision && tab === 'decisions' && <Decisions decision={decision} />}
             {decision && tab === 'backtest' && <Backtest decision={decision} />}
+            {decision && tab === 'clients' &&
+              (decision.multiclient ? (
+                <Clients mc={decision.multiclient} />
+              ) : (
+                <p className="empty">
+                  No multi-client results yet. Run <code>python -m benchmark.multiclient.run</code>, then the summary and export.
+                </p>
+              ))}
             <footer className="footer">
               Data: <a href={results.meta.dataset_url}>{results.meta.dataset}</a> · generated{' '}
               {results.meta.generated_at.slice(0, 10)}

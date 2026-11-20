@@ -93,6 +93,48 @@ export interface Day {
   plans: Record<string, DayPlan>
 }
 
+export interface PlannerResult {
+  share: Record<MethodId, number>
+  model_gap: number
+  seed_spread: number
+  best: MethodId
+  rank_corr_rmse: number
+  rank_corr_peak: number
+}
+
+export interface ClientResult {
+  client: string
+  mean_load_kw: number
+  contract_no_battery_kw: number
+  contract_battery_kw: number
+  perfect_saving_pct: number
+  best_rmse: MethodId
+  plain: PlannerResult
+  flatten: PlannerResult
+}
+
+interface PlannerSummary {
+  gap_above_seed_spread: number
+  median_model_gap: number
+  median_rank_corr_rmse: number
+  median_rank_corr_peak: number
+  learned_beats_naive: number
+  mean_share: Record<MethodId, number>
+}
+
+export interface MultiClient {
+  rule: { window: [string, string]; max_zero_day_share: number; min_mean_kw: number; seed: number }
+  clients_total: number
+  eligible: number
+  clients: ClientResult[]
+  summary: {
+    flatten_helps_all_methods: number
+    flatten_gain_mean: number
+    flatten_gain_min: number
+    flatten_gain_max: number
+  } & { [K in `${Planner}_${keyof PlannerSummary}`]: K extends `${Planner}_${infer F extends keyof PlannerSummary}` ? PlannerSummary[F] : never }
+}
+
 export interface Decision {
   meta: {
     generated_at: string
@@ -131,6 +173,8 @@ export interface Decision {
   }
   overruns: Record<Planner, { strategy: string; over_slots: number; over_while_charging: number }[]>
   days: Day[]
+  /** The ten-client check; null until benchmark.multiclient has been run */
+  multiclient: MultiClient | null
 }
 
 export const METHOD_LABELS: Record<StrategyId, string> = {

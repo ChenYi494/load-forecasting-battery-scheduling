@@ -22,8 +22,17 @@ FEATURES = CALENDAR + list(LAGS) + DAILY
 TEST_START_DAY = pd.Timestamp("2014-03-15")
 
 
-def load_series():
-    """Load on a complete 15-minute grid; intervals removed by the ETL (zero readings) become NaN."""
+CLIENTS_PATH = os.path.join(BASE_DIR, "data", "clients.parquet")
+
+
+def load_series(client=None):
+    """Load on a complete 15-minute grid; intervals removed by the ETL (zero readings) become NaN.
+
+    client=None reads MT_200 from the main dataset; any other client is read from data/clients.parquet
+    (written by benchmark.multiclient.select), where zero readings are already NaN.
+    """
+    if client is not None:
+        return pd.read_parquet(CLIENTS_PATH, columns=[client])[client].rename("load")
     df = pd.read_parquet(os.path.join(BASE_DIR, COMMON_BASE["dataset_path"]), columns=["timestamp", "load"])
     grid = pd.date_range(df["timestamp"].min(), df["timestamp"].max(), freq="15min")
     return df.set_index("timestamp")["load"].reindex(grid)

@@ -162,9 +162,9 @@ export default function Backtest({ decision }: { decision: Decision }) {
           </table>
         </div>
         <p className="note">
-          With the plain plan every forecast keeps about the same share, and the range across seeds of one model is as wide as the gap
-          between models. Changing where the planner discharges inside a price period moves every forecast up by about ten points;
-          which forecast is used moves it by a few.
+          On this client, with the plain plan every forecast keeps about the same share, and the range across seeds of one model is as
+          wide as the gap between models. Changing where the planner discharges inside a price period moves every forecast up by about
+          ten points; which forecast is used moves it by a few. The Ten clients tab repeats this on nine more clients.
         </p>
       </section>
 
@@ -349,7 +349,7 @@ export default function Backtest({ decision }: { decision: Decision }) {
         <ul className="findings">
           <li>The tariff is Taiwanese and the load is Portuguese: this is an illustrative price structure, not a real bill. Results depend on it; heavy excess charges are what make forecast errors costly here.</li>
           <li>Taiwanese public holidays (all-day off-peak) are not applied; only Sundays are all-day off-peak.</li>
-          <li>One client (MT_200) and one test year; the battery size and efficiency are assumptions.</li>
+          <li>One test year. Everything on this page is MT_200; the ten-client check repeats only the base case. The battery size and efficiency are assumptions.</li>
           <li>The planner works one day at a time and does not know the month's highest demand so far.</li>
         </ul>
       </section>

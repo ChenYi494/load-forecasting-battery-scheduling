@@ -75,8 +75,8 @@ def bill(run, contract, tariff, battery=None):
     return monthly_bill(run.index, run["grid"].to_numpy(), contract, tariff, run["discharge"].to_numpy(), cycle)
 
 
-def choose_contract(days, series, tariff, battery=None):
-    """Contract (multiple of 10 kW) that minimizes the training year's bill: a 50 kW scan, then 10 kW around the best."""
+def choose_contract(days, series, tariff, battery=None, fine_step=CONTRACT_STEP_KW, coarse_step=COARSE_STEP_KW):
+    """Contract that minimizes the training year's bill: a coarse scan, then a fine one around the best."""
     peak = series.loc[series.index.normalize().isin(days)].max()
     no_battery_run = run_days(days, series, None, 0.0, None, tariff) if battery is None else None
 
@@ -84,12 +84,12 @@ def choose_contract(days, series, tariff, battery=None):
         run = no_battery_run if battery is None else run_days(days, series, series, c, battery, tariff, SEARCH_POWER_STEPS)
         return bill(run, c, tariff, battery)["total"].sum()
 
-    low = np.floor(0.6 * peak / COARSE_STEP_KW) * COARSE_STEP_KW
-    coarse = np.arange(low, peak + COARSE_STEP_KW, COARSE_STEP_KW)
+    low = np.floor(0.6 * peak / coarse_step) * coarse_step
+    coarse = np.arange(low, peak + coarse_step, coarse_step)
     best = coarse[int(np.argmin([total(c) for c in coarse]))]
     if best in (coarse[0], coarse[-1]):
         raise RuntimeError(f"best contract {best} kW is at the edge of the search range")
-    fine = np.arange(best - COARSE_STEP_KW + CONTRACT_STEP_KW, best + COARSE_STEP_KW, CONTRACT_STEP_KW)
+    fine = np.arange(best - coarse_step + fine_step, best + coarse_step, fine_step)
     return float(fine[int(np.argmin([total(c) for c in fine]))])
 
 

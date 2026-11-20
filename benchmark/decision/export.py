@@ -21,6 +21,8 @@ from benchmark.decision.battery import battery_for_load
 from benchmark.decision.flatten import FLAT_SCHEDULES, FLATTEN
 from benchmark.decision.tariff import load_tariff
 from benchmark.export import git_commit
+from benchmark.multiclient.run import OUT_DIR as MULTICLIENT_DIR
+from benchmark.multiclient.select import SELECTION
 
 RESULTS_DIR = os.path.join(BASE_DIR, PATH["results_folder"])
 OUTPUT_JSON = os.path.join(BASE_DIR, "web", "public", "decision.json")
@@ -158,6 +160,50 @@ def build_days(tariff, contract, plain, flat):
     return days
 
 
+def build_multiclient():
+    """The ten-client check (benchmark.multiclient); None until it has been run."""
+    summary_path = os.path.join(MULTICLIENT_DIR, "summary.csv")
+    if not os.path.exists(summary_path):
+        return None
+    with open(SELECTION) as f:
+        selection = json.load(f)
+    summary = pd.read_csv(summary_path)
+    clients = []
+    for _, r in summary.iterrows():
+        clients.append({
+            "client": r["client"], "mean_load_kw": float(r["mean_load_kw"]),
+            "contract_no_battery_kw": float(r["contract_no_battery_kw"]), "contract_battery_kw": float(r["contract_battery_kw"]),
+            "perfect_saving_pct": round(float(r["perfect_saving_pct"]), 2),
+            "best_rmse": r["best_rmse"],
+            **{p: {"share": {m: round(float(r[f"{p}_{m}"]), 2) for m in METHODS},
+                   "model_gap": round(float(r[f"{p}_model_gap"]), 2), "seed_spread": round(float(r[f"{p}_seed_spread"]), 2),
+                   "best": r[f"{p}_best"], "rank_corr_rmse": round(float(r[f"{p}_rank_corr_rmse"]), 3),
+                   "rank_corr_peak": round(float(r[f"{p}_rank_corr_peak"]), 3)}
+               for p in ("plain", "flatten")},
+        })
+    learned, naive = ["linear", "mlp", "rf"], ["naive_yesterday", "naive_last_week"]
+    best = lambda p, ms: summary[[f"{p}_{m}" for m in ms]].max(axis=1)
+    gains = summary["flatten_gain_mean"]
+    return {
+        "rule": selection["rule"], "clients_total": selection["clients_total"], "eligible": selection["eligible"],
+        "clients": clients,
+        "summary": {
+            "flatten_helps_all_methods": int((summary[[f"flatten_{m}" for m in METHODS]].to_numpy()
+                                              > summary[[f"plain_{m}" for m in METHODS]].to_numpy()).all(axis=1).sum()),
+            "flatten_gain_mean": round(float(gains.mean()), 2), "flatten_gain_min": round(float(gains.min()), 2),
+            "flatten_gain_max": round(float(gains.max()), 2),
+            **{f"{p}_{k}": v for p in ("plain", "flatten") for k, v in {
+                "gap_above_seed_spread": int((summary[f"{p}_model_gap"] > summary[f"{p}_seed_spread"]).sum()),
+                "median_model_gap": round(float(summary[f"{p}_model_gap"].median()), 2),
+                "median_rank_corr_rmse": round(float(summary[f"{p}_rank_corr_rmse"].median()), 3),
+                "median_rank_corr_peak": round(float(summary[f"{p}_rank_corr_peak"].median()), 3),
+                "learned_beats_naive": int((best(p, learned) > best(p, naive)).sum()),
+                "mean_share": {m: round(float(summary[f"{p}_{m}"].mean()), 2) for m in METHODS},
+            }.items()},
+        },
+    }
+
+
 def tariff_meta(tariff):
     def spans(season, day_type):
         return [f"{lo // 60:02d}:{lo % 60:02d}–{hi // 60:02d}:{hi % 60:02d} {name}" for lo, hi, name in tariff.periods[season][day_type]]
@@ -202,6 +248,7 @@ def main():
         "overruns": {"plain": charging_overruns(plain, backtest["contract_battery_kw"]),
                      "flatten": charging_overruns(flat, backtest["contract_battery_kw"])},
         "days": build_days(tariff, backtest["contract_battery_kw"], plain, flat),
+        "multiclient": build_multiclient(),
     }
     with open(OUTPUT_JSON, "w") as f:
         json.dump(output, f, ensure_ascii=False, separators=(",", ":"))

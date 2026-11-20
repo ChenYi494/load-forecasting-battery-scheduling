@@ -71,12 +71,14 @@ def per_day_latency_ms(model, X_test):
     return float(np.median(times))
 
 
-def main():
+def train_all(load, verbose=True):
+    """Fit every method on one load series; returns the test predictions and one result row per method and seed."""
     torch.set_num_threads(1)
-    frame = build_features(load_series())
+    frame = build_features(load)
     train, test, skipped = split(frame)
     test, filled = fill_missing_lags(test)
-    print(f"train {len(train)} rows; test {test['day'].nunique()} days ({skipped} incomplete days skipped, {filled} slots with a filled lag)")
+    if verbose:
+        print(f"train {len(train)} rows; test {test['day'].nunique()} days ({skipped} incomplete days skipped, {filled} slots with a filled lag)")
 
     # Validation for MLP early stopping: the last 10% of the training period
     n_val = int(round(len(train) * 0.1))
@@ -111,8 +113,13 @@ def main():
                    "rss_delta_mb": round(mem.peak_mb - mem.baseline_mb, 2),
                    "predict_ms_per_day": round(per_day_latency_ms(model, X_test), 4), **accuracy(test, pred)}
             rows.append(row)
-            print(f"{name:<8} seed {seed}: RMSE {row['rmse']:.1f}  peak MAE {row['peak_mae']:.1f}  train {train_time:.1f}s")
+            if verbose:
+                print(f"{name:<8} seed {seed}: RMSE {row['rmse']:.1f}  peak MAE {row['peak_mae']:.1f}  train {train_time:.1f}s")
+    return predictions, rows
 
+
+def main():
+    predictions, rows = train_all(load_series())
     os.makedirs(os.path.dirname(PREDICTIONS), exist_ok=True)
     predictions.rename_axis("timestamp").reset_index().to_parquet(PREDICTIONS, index=False)
     results = pd.DataFrame(rows)

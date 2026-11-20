@@ -47,7 +47,7 @@ export default function DayAhead({ decision }: { decision: Decision }) {
   return (
     <div className="panel-grid">
       <section className="panel span-2">
-        <h2>Task B: forecast tomorrow, all 96 intervals</h2>
+        <h2>Task B: forecast tomorrow, all 96 intervals (MT_200)</h2>
         <p className="lead">
           A battery schedule for tomorrow is fixed before tomorrow starts, so every input may only use loads up to 23:45 the day
           before. Tests check that no feature reads a value from the forecast day.
@@ -102,8 +102,8 @@ export default function DayAhead({ decision }: { decision: Decision }) {
         <p className="note">
           {METHOD_LABELS[best.method]} has the lowest RMSE ({num(best.rmse.mean, 1)} kW), but{' '}
           {METHOD_LABELS[bestPeak.method].toLowerCase()} misses the daily maximum by the least ({num(bestPeak.peak_mae.mean, 1)}{' '}
-          kW). The learned models under-forecast the daily maximum on most days, and the maximum is what the demand charge
-          bills.
+          kW). On this client the learned models under-forecast the daily maximum on most days. Across ten clients, though, the
+          error of the daily maximum does not rank the bills (see Ten clients).
         </p>
       </section>
     </div>
