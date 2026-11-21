@@ -1,10 +1,10 @@
-# Day-ahead load forecasts × battery scheduling
+# Day-Ahead Load Forecasting for Battery Scheduling
 
 A battery cuts an electricity bill only as well as the plan made for it the evening before, and that plan relies on a forecast of tomorrow's load. This project measures how much forecast quality is actually worth: day-ahead forecasts from five methods drive a battery planner on 10 real clients, and every plan is billed with the Taipower high-voltage time-of-use tariff.
 
 Result in one line: across 10 clients, changing one planning rule moved the saving by 10.5 points on average, while choosing between five forecasts moved it by a median of 3.8 points.
 
-**Results site:** https://chenyi494.github.io/power-load-forecasting-benchmarks/ (built from `web/` by GitHub Actions on every push to `master`). Run it locally with `cd web && npm install && npm run dev`: an interactive experiment dashboard (pick a client, forecast and planning rule), a replay of single days with the battery, all result tables, and the original accuracy-vs-compute benchmark as an appendix. Every number on it is computed from files in `results/` and `predictions/`.
+**Results site:** https://chenyi494.github.io/load-forecasting-battery-scheduling/ (built from `web/` by GitHub Actions on every push to `master`). Run it locally with `cd web && npm install && npm run dev`: an interactive experiment dashboard (pick a client, forecast and planning rule), a replay of single days with the battery, all result tables, and the original accuracy-vs-compute benchmark as an appendix. Every number on it is computed from files in `results/` and `predictions/`.
 
 ## Pipeline
 
