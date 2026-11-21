@@ -4,7 +4,7 @@ A battery cuts an electricity bill only as well as the plan made for it the even
 
 Result in one line: across 10 clients, changing one planning rule moved the saving by 10.5 points on average, while choosing between five forecasts moved it by a median of 3.8 points.
 
-**Results site:** `web/` (React, TypeScript, ECharts). Run it with `cd web && npm install && npm run dev`: an interactive experiment dashboard (pick a client, forecast and planning rule), a replay of single days with the battery, all result tables, and the original accuracy-vs-compute benchmark as an appendix. Every number on it is computed from files in `results/` and `predictions/`.
+**Results site:** https://chenyi494.github.io/power-load-forecasting-benchmarks/ (built from `web/` by GitHub Actions on every push to `master`). Run it locally with `cd web && npm install && npm run dev`: an interactive experiment dashboard (pick a client, forecast and planning rule), a replay of single days with the battery, all result tables, and the original accuracy-vs-compute benchmark as an appendix. Every number on it is computed from files in `results/` and `predictions/`.
 
 ## Pipeline
 
