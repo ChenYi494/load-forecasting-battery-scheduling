@@ -11,7 +11,7 @@ const signedTwd = (v: number) => `${v > 0 ? '+' : v < 0 ? '−' : ''}NT$${int(Ma
 export default function Backtest({ decision }: { decision: Decision }) {
   const theme = useTheme()
   const bt = decision.backtest
-  const { battery, tariff } = decision.meta
+  const { tariff } = decision.meta
   const plain = (m: string) => bt.methods.find((r) => r.method === m)!
   const flat = (m: string) => bt.flatten.find((r) => r.method === m)!
   const perfect = plain('perfect_foresight')
@@ -101,25 +101,6 @@ export default function Backtest({ decision }: { decision: Decision }) {
         </div>
       </div>
 
-      <section className="panel span-2">
-        <h2>How it is scored</h2>
-        <p className="lead">
-          Every test day, each forecast plans tomorrow's battery schedule with dynamic programming; the plan is then run against the
-          actual load and billed with the Taipower high-voltage two-stage tariff. Perfect foresight plans on the actual load and is the
-          upper bound. Score: share of the perfect-foresight saving that a forecast keeps.
-        </p>
-        <dl className="facts">
-          <dt>Battery</dt>
-          <dd>
-            {int(battery.capacity_kwh)} kWh, {int(battery.power_kw)} kW, {num(battery.round_trip_efficiency * 100, 0)}% round trip (an
-            assumption: {battery.hours} h of mean load)
-          </dd>
-          <dt>Contract</dt>
-          <dd>chosen once from the last 12 months of training data, before the test period</dd>
-          <dt>Planner check</dt>
-          <dd>dynamic programming agrees with an exact linear program (HiGHS) to within 0.15% on real test days</dd>
-        </dl>
-      </section>
 
       <section className="panel span-2">
         <div className="panel-h">
@@ -161,11 +142,6 @@ export default function Backtest({ decision }: { decision: Decision }) {
             </tbody>
           </table>
         </div>
-        <p className="note">
-          On this client, with the plain plan every forecast keeps about the same share, and the range across seeds of one model is as
-          wide as the gap between models. Changing where the planner discharges inside a price period moves every forecast up by about
-          ten points; which forecast is used moves it by a few. The Ten clients tab repeats this on nine more clients.
-        </p>
       </section>
 
       <section className="panel span-2">
@@ -200,10 +176,6 @@ export default function Backtest({ decision }: { decision: Decision }) {
             </tbody>
           </table>
         </div>
-        <p className="note">
-          Most of the saving is buying at the off-peak price and using it at the peak price, which needs no forecast. Forecast errors
-          show up almost only as excess-demand charges: the plan expects to stay under the contract and the real load does not.
-        </p>
       </section>
 
       <section className="panel span-2">
@@ -219,10 +191,6 @@ export default function Backtest({ decision }: { decision: Decision }) {
           <h2>A safety margin does not fix it</h2>
           <span className="muted">plain plan; forecast + a quantile of its own past error</span>
         </div>
-        <p>
-          The margin is a quantile of each forecast's under-forecast error on the 90 days before the test period, so it is fixed without
-          looking at the test data.
-        </p>
         <div className="table-wrap">
           <table>
             <thead>
@@ -252,10 +220,6 @@ export default function Backtest({ decision }: { decision: Decision }) {
             </tbody>
           </table>
         </div>
-        <p className="note">
-          A larger margin lowers the excess charge but keeps the battery from buying cheap and selling dear, so the two nearly cancel.
-          The overrun that sets a month's charge is often larger than any margin taken from typical errors.
-        </p>
       </section>
 
       <section className="panel span-2">
@@ -346,11 +310,9 @@ export default function Backtest({ decision }: { decision: Decision }) {
           Excess demand above the contract: up to 10% of the contract at {tariff.excess_multiples[0]}× the basic charge, the rest at{' '}
           {tariff.excess_multiples[1]}×. Source: {tariff.source.document} (retrieved {tariff.source.retrieved}).
         </p>
-        <ul className="findings">
-          <li>The tariff is Taiwanese and the load is Portuguese: this is an illustrative price structure, not a real bill. Results depend on it; heavy excess charges are what make forecast errors costly here.</li>
-          <li>Taiwanese public holidays (all-day off-peak) are not applied; only Sundays are all-day off-peak.</li>
-          <li>One test year. Everything on this page is MT_200; the ten-client check repeats only the base case. The battery size and efficiency are assumptions.</li>
-          <li>The planner works one day at a time and does not know the month's highest demand so far.</li>
+        <ul className="findings compact">
+          <li>Taiwanese tariff on Portuguese loads: an illustrative price structure, not a real bill.</li>
+          <li>Battery size and efficiency are assumptions; the planner works one day at a time.</li>
         </ul>
       </section>
     </div>

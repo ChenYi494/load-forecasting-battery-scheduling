@@ -122,7 +122,29 @@ interface PlannerSummary {
   mean_share: Record<MethodId, number>
 }
 
+export interface ClientRun {
+  client: string
+  planner: Planner
+  method: 'no_battery' | StrategyId
+  seed: number | null
+  share: number
+  saving: number
+  excess: number
+  total: number
+  months_with_excess: number
+}
+
+export interface ClientAccuracy {
+  client: string
+  method: MethodId
+  seed: number | null
+  rmse: number
+  peak_mae: number
+}
+
 export interface MultiClient {
+  runs: ClientRun[]
+  accuracy: ClientAccuracy[]
   rule: { window: [string, string]; max_zero_day_share: number; min_mean_kw: number; seed: number }
   clients_total: number
   eligible: number

@@ -184,9 +184,27 @@ def build_multiclient():
     learned, naive = ["linear", "mlp", "rf"], ["naive_yesterday", "naive_last_week"]
     best = lambda p, ms: summary[[f"{p}_{m}" for m in ms]].max(axis=1)
     gains = summary["flatten_gain_mean"]
+    # Every run, for the interactive dashboard: one row per client, planner and strategy (seeds kept apart)
+    runs = []
+    for client in summary["client"]:
+        b = pd.read_csv(os.path.join(MULTICLIENT_DIR, f"{client}_backtest.csv"))
+        for _, r in b.iterrows():
+            seed = r["strategy"].rsplit("_s", 1)[-1] if r["strategy"] != r["method"] else None
+            runs.append({"client": client, "planner": r["planner"], "method": r["method"],
+                         "seed": int(seed) if seed else None, "share": round(float(r["share_of_perfect"]), 3),
+                         "saving": round(float(r["saving"]), 1), "excess": round(float(r["excess"]), 1),
+                         "total": round(float(r["total"]), 1), "months_with_excess": int(r["months_with_excess"])})
+    accuracy = []
+    for client in summary["client"]:
+        a = pd.read_csv(os.path.join(MULTICLIENT_DIR, f"{client}_accuracy.csv"))
+        for _, r in a.iterrows():
+            accuracy.append({"client": client, "method": r["method"], "seed": None if pd.isna(r["seed"]) else int(r["seed"]),
+                             "rmse": round(float(r["rmse"]), 3), "peak_mae": round(float(r["peak_mae"]), 3)})
     return {
         "rule": selection["rule"], "clients_total": selection["clients_total"], "eligible": selection["eligible"],
         "clients": clients,
+        "runs": runs,
+        "accuracy": accuracy,
         "summary": {
             "flatten_helps_all_methods": int((summary[[f"flatten_{m}" for m in METHODS]].to_numpy()
                                               > summary[[f"plain_{m}" for m in METHODS]].to_numpy()).all(axis=1).sum()),

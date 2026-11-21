@@ -72,24 +72,6 @@ export default function Clients({ mc }: { mc: MultiClient }) {
         </div>
       </div>
 
-      <section className="panel span-2">
-        <h2>Does it hold beyond MT_200?</h2>
-        <p className="lead">
-          The base case (2 h battery, unshifted tariff, 3 seeds for MLP and random forest) was repeated on ten clients with the same
-          code. Each client gets its own battery size, contract and training data.
-        </p>
-        <dl className="facts">
-          <dt>Selection</dt>
-          <dd>
-            {mc.eligible} of {mc.clients_total} clients have data on at least {num((1 - mc.rule.max_zero_day_share) * 100, 0)}% of days
-            from {mc.rule.window[0].slice(0, 4)} to {mc.rule.window[1].slice(0, 4)} and a mean load of at least{' '}
-            {int(mc.rule.min_mean_kw)} kW (the smallest contract on the high-voltage tariff). MT_200 plus {n - 1} of them drawn at
-            random (seed {mc.rule.seed}), so none are hand-picked.
-          </dd>
-          <dt>Score</dt>
-          <dd>share of each client's own perfect-foresight saving, for the plain plan and the discharge-at-highest-load plan</dd>
-        </dl>
-      </section>
 
       <section className="panel span-2">
         <div className="panel-h">
@@ -130,8 +112,7 @@ export default function Clients({ mc }: { mc: MultiClient }) {
           </table>
         </div>
         <p className="muted">
-          Gap and spread are in percentage points for the highest-load plan; the spread is the widest range across the three seeds of one
-          model. Ranges in the plan columns run from the worst to the best of the five forecasts.
+          Selection: {mc.eligible} of {mc.clients_total} clients with complete 2012–2014 data and mean load ≥ {int(mc.rule.min_mean_kw)} kW; MT_200 + {n - 1} drawn at random (seed {mc.rule.seed}). Gap and spread in points, improved plan.
         </p>
       </section>
 
@@ -163,31 +144,6 @@ export default function Clients({ mc }: { mc: MultiClient }) {
             </tbody>
           </table>
         </div>
-        <ul className="findings">
-          <li>
-            <b>The planner matters most, on every client.</b> Discharging at the highest forecast load raises every forecast's share on{' '}
-            {s.flatten_helps_all_methods} of {n} clients, by {num(s.flatten_gain_mean, 1)} points on average.
-          </li>
-          <li>
-            <b>A weak planner hides forecast quality.</b> With the plain plan, the gap between forecasts exceeds the spread across seeds on
-            only {s.plain_gap_above_seed_spread} of {n} clients, and RMSE barely predicts the bill (median Spearman{' '}
-            {num(s.plain_median_rank_corr_rmse, 2)}). With the improved planner the gap exceeds the seed spread on{' '}
-            {s.flatten_gap_above_seed_spread} of {n} clients and the correlation rises to {num(s.flatten_median_rank_corr_rmse, 2)}.
-          </li>
-          <li>
-            <b>Better forecasts then help, but a little.</b> A learned model beats both naive forecasts on {s.flatten_learned_beats_naive}{' '}
-            of {n} clients; the median gap between the best and worst forecast is {num(s.flatten_median_model_gap, 1)} points.
-          </li>
-          <li>
-            <b>The error of the daily maximum does not rank the bills</b> (median Spearman {num(s.plain_median_rank_corr_peak, 2)} plain,{' '}
-            {num(s.flatten_median_rank_corr_peak, 2)} improved). On MT_200 the learned models under-forecast the daily peak most often,
-            but that is not a general explanation.
-          </li>
-          <li>
-            <b>One client is not enough to rank models.</b> MT_200 rerun with this pipeline (contract chosen on a finer grid; the
-            multi-client ETL keeps 21 intervals the main ETL drops) moves the MLP's plain-plan share by about 5 points.
-          </li>
-        </ul>
       </section>
     </div>
   )

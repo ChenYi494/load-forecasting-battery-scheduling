@@ -3,13 +3,11 @@ import type { EChartsOption } from 'echarts'
 import Chart from '../components/Chart.tsx'
 import { useTheme } from '../components/useTheme.ts'
 import { METHOD_LABELS, METHOD_STYLE, type Decision } from '../decision.ts'
-import { day, num, spread } from '../format.ts'
+import { num, spread } from '../format.ts'
 
 export default function DayAhead({ decision }: { decision: Decision }) {
   const theme = useTheme()
   const rows = decision.accuracy
-  const best = rows.reduce((a, r) => (r.rmse.mean < a.rmse.mean ? r : a))
-  const bestPeak = rows.reduce((a, r) => (r.peak_mae.mean < a.peak_mae.mean ? r : a))
 
   const option = useMemo<EChartsOption>(
     () => ({
@@ -46,23 +44,6 @@ export default function DayAhead({ decision }: { decision: Decision }) {
 
   return (
     <div className="panel-grid">
-      <section className="panel span-2">
-        <h2>Task B: forecast tomorrow, all 96 intervals (MT_200)</h2>
-        <p className="lead">
-          A battery schedule for tomorrow is fixed before tomorrow starts, so every input may only use loads up to 23:45 the day
-          before. Tests check that no feature reads a value from the forecast day.
-        </p>
-        <dl className="facts">
-          <dt>Test period</dt>
-          <dd>
-            {day(decision.meta.test_start)} – {day(decision.meta.test_end)}, {decision.meta.test_days} complete days
-          </dd>
-          <dt>Inputs</dt>
-          <dd>calendar, load 1, 2 and 7 days earlier at the same time, mean and maximum of the previous day</dd>
-          <dt>Seeds</dt>
-          <dd>MLP and random forest: 3 seeds each; the table shows the mean and the range</dd>
-        </dl>
-      </section>
 
       <section className="panel span-2">
         <div className="panel-h">
@@ -99,12 +80,6 @@ export default function DayAhead({ decision }: { decision: Decision }) {
             </tbody>
           </table>
         </div>
-        <p className="note">
-          {METHOD_LABELS[best.method]} has the lowest RMSE ({num(best.rmse.mean, 1)} kW), but{' '}
-          {METHOD_LABELS[bestPeak.method].toLowerCase()} misses the daily maximum by the least ({num(bestPeak.peak_mae.mean, 1)}{' '}
-          kW). On this client the learned models under-forecast the daily maximum on most days. Across ten clients, though, the
-          error of the daily maximum does not rank the bills (see Ten clients).
-        </p>
       </section>
     </div>
   )
