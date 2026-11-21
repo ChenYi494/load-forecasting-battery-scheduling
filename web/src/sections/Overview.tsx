@@ -61,33 +61,32 @@ export default function Overview({ results }: { results: Results }) {
   return (
     <div className="panel-grid">
       <section className="panel span-2">
-        <h2>The question</h2>
-        <p className="lead">
-          Forecasting the next 15 minutes of electricity load, how much do linear regression, an MLP and a random forest
-          improve on simply repeating the last value, and what do they cost to train and run?
-        </p>
-        <ul className="findings">
-          <li>
-            <b>The best model beats persistence by {pct(-findings.best_run.vs_persistence_pct).replace('+', '')}.</b>{' '}
-            {MODEL_LABELS[findings.best_run.model]} with {int(findings.best_run.dataset_size)} training rows reaches{' '}
-            {num(findings.best_run.rmse, 1)} kW RMSE against {num(persistence.rmse, 1)} kW for persistence. Repeating the
-            value from 24 hours earlier is much worse ({num(seasonal.rmse, 1)} kW).
-          </li>
+        <div className="stat-row flush">
+          <div>
+            <span className="sr-k">Best vs. persistence ({MODEL_LABELS[findings.best_run.model]}, {int(findings.best_run.dataset_size)} rows)</span>
+            <span className="sr-v num pos">{pct(findings.best_run.vs_persistence_pct)}</span>
+          </div>
+          <div>
+            <span className="sr-k">Persistence · same time yesterday (RMSE)</span>
+            <span className="sr-v num">
+              {num(persistence.rmse, 1)} · {num(seasonal.rmse, 1)} kW
+            </span>
+          </div>
           {rf10k && (
-            <li>
-              <b>Random forests fail when the test period goes beyond the training range.</b> Trained on {int(smallSize)}{' '}
-              winter rows, {num(rf10k.share_test_above_train_max * 100, 1)}% of test loads exceed the highest load it has
-              seen ({num(rf10k.train_max_kw, 0)} kW); its error there is {num(rf10k.rmse_rows_above, 0)} kW against{' '}
-              {num(rf10k.rmse_rows_within, 0)} kW elsewhere. Median RMSE at {int(smallSize)} rows: random forest{' '}
-              {num(median('rf', smallSize, 'rmse'), 1)}, linear regression {num(median('linear', smallSize, 'rmse'), 1)}.
-            </li>
+            <div>
+              <span className="sr-k">Random forest, {int(smallSize)} rows: error above / within training max</span>
+              <span className="sr-v num neg">
+                {num(rf10k.rmse_rows_above, 0)} / {num(rf10k.rmse_rows_within, 0)} kW
+              </span>
+            </div>
           )}
-          <li>
-            <b>Accuracy gains cost memory.</b> At {int(largest)} rows the random forest needs a median{' '}
-            {num(median('rf', largest, 'rss_delta_mb'), 0)} MB to train, linear regression{' '}
-            {num(median('linear', largest, 'rss_delta_mb'), 1)} MB.
-          </li>
-        </ul>
+          <div>
+            <span className="sr-k">Training memory at {int(largest)} rows: forest / linear</span>
+            <span className="sr-v num">
+              {num(median('rf', largest, 'rss_delta_mb'), 0)} / {num(median('linear', largest, 'rss_delta_mb'), 1)} MB
+            </span>
+          </div>
+        </div>
       </section>
 
       <section className="panel span-2">
