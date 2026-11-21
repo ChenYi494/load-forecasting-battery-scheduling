@@ -198,7 +198,7 @@ export default function Dashboard({ decision, mc }: { decision: Decision; mc: Mu
           <p className="run-id">
             exp/decision-layer · {mc.clients.length} clients · {decision.meta.test_days} test days · {planner === 'plain' ? 'plain' : 'improved'} rule
           </p>
-          <h1>Day-ahead load forecasts × battery scheduling</h1>
+          <h1>Day-Ahead Load Forecasting for Battery Scheduling</h1>
         </header>
 
       <div className="tiles">

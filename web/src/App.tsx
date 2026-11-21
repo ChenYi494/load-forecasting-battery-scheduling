@@ -71,7 +71,7 @@ export default function App() {
       <header className="topnav">
         <a className="brand" href="#dashboard">
           <span className="brand-mark" aria-hidden="true" />
-          <span>Forecasts &amp; batteries</span>
+          <span>Load Forecasting × Battery Scheduling</span>
         </a>
         <nav aria-label="Pages">
           {PAGES.map((p) => (
@@ -103,7 +103,7 @@ export default function App() {
       <footer className="site-foot">
         Data: <a href="https://archive.ics.uci.edu/dataset/321/electricityloaddiagrams20112014">UCI ElectricityLoadDiagrams20112014</a> · Tariff:
         Taipower high-voltage two-stage TOU (2025-10) ·{' '}
-        <a href="https://github.com/ChenYi494/power-load-forecasting-benchmarks">GitHub</a>
+        <a href="https://github.com/ChenYi494/load-forecasting-battery-scheduling">GitHub</a>
         {decision?.meta.git_commit && <> · commit {decision.meta.git_commit}</>}
       </footer>
     </div>
