@@ -1,99 +1,111 @@
-import { useEffect, useMemo, useState } from 'react'
-import MetricCards from './components/MetricCards.tsx'
-import Sidebar from './components/Sidebar.tsx'
+import { useEffect, useState } from 'react'
 import { loadResults, type Results } from './data.ts'
-import { defaultFilters, withinBudget, type Filters } from './filters.ts'
-import { day, int } from './format.ts'
-import Comparison from './sections/Comparison.tsx'
-import DataSize from './sections/DataSize.tsx'
-import Forecast from './sections/Forecast.tsx'
-import Methods from './sections/Methods.tsx'
-import Overview from './sections/Overview.tsx'
+import { loadDecision, type Decision } from './decision.ts'
+import Benchmark from './pages/Benchmark.tsx'
+import { BENCH_TABS, type BenchTab } from './pages/benchTabs.ts'
+import Evidence from './pages/Evidence.tsx'
+import Dashboard from './pages/Dashboard.tsx'
+import Decisions from './sections/Decisions.tsx'
 
-const TABS = [
-  { id: 'overview', label: 'Overview' },
-  { id: 'comparison', label: 'Model comparison' },
-  { id: 'data-size', label: 'Training size' },
-  { id: 'forecast', label: 'Forecasts' },
-  { id: 'methods', label: 'Methods & limits' },
+const PAGES = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'day', label: 'A day with the battery' },
+  { id: 'evidence', label: 'All results' },
+  { id: 'benchmark', label: 'Appendix: benchmark' },
 ] as const
-type TabId = (typeof TABS)[number]['id']
+type PageId = (typeof PAGES)[number]['id']
 
-function tabFromHash(): TabId {
-  const id = window.location.hash.slice(1)
-  return TABS.some((t) => t.id === id) ? (id as TabId) : 'overview'
+// Links to the earlier tab layout keep working
+const LEGACY: Record<string, string> = {
+  story: 'dashboard',
+  decisions: 'day',
+  backtest: 'evidence',
+  clients: 'evidence',
+  'day-ahead': 'evidence',
+  ...Object.fromEntries(BENCH_TABS.map((t) => [t.id, `benchmark/${t.id}`])),
+}
+
+function route(): { page: PageId; sub: BenchTab } {
+  const raw = window.location.hash.slice(1)
+  const hash = LEGACY[raw] ?? raw
+  const [page, sub] = hash.split('/')
+  return {
+    page: PAGES.some((p) => p.id === page) ? (page as PageId) : 'dashboard',
+    sub: BENCH_TABS.some((t) => t.id === sub) ? (sub as BenchTab) : 'overview',
+  }
 }
 
 export default function App() {
   const [results, setResults] = useState<Results | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [filters, setFilters] = useState<Filters | null>(null)
-  const [tab, setTab] = useState<TabId>(tabFromHash)
+  const [decision, setDecision] = useState<Decision | null>(null)
+  const [errors, setErrors] = useState<{ results?: string; decision?: string }>({})
+  const [{ page, sub }, setRoute] = useState(route)
 
   useEffect(() => {
     loadResults()
-      .then((r) => {
-        setResults(r)
-        setFilters(defaultFilters(r))
-      })
-      .catch((e: Error) => setError(e.message))
+      .then(setResults)
+      .catch((e: Error) => setErrors((x) => ({ ...x, results: e.message })))
+    loadDecision()
+      .then(setDecision)
+      .catch((e: Error) => setErrors((x) => ({ ...x, decision: e.message })))
   }, [])
 
-  // Tabs live in the URL hash so a link can open a specific tab
+  // Pages live in the URL hash so a link can open a specific page
   useEffect(() => {
-    const onHash = () => setTab(tabFromHash())
+    const onHash = () => {
+      setRoute(route())
+      window.scrollTo({ top: 0 })
+    }
     window.addEventListener('hashchange', onHash)
     return () => window.removeEventListener('hashchange', onHash)
   }, [])
 
-  const passing = useMemo(() => (results && filters ? withinBudget(results.runs, filters) : []), [results, filters])
+  // Pages with the left control panel: it runs the full height and the footer sits in the right column
+  const withSidebar = page === 'benchmark' || page === 'dashboard'
+  const needs = page === 'benchmark' ? 'results' : 'decision'
+  const error = errors[needs]
+  const ready = needs === 'results' ? results : decision
 
   return (
-    <div className="desk">
-      <header className="bar">
-        <div className="bar-name">
-          <b>Load forecasting: accuracy vs. compute</b>
-          {results && (
-            <span>
-              UCI {results.meta.client} · test {day(results.meta.test_start)} – {day(results.meta.test_end)} ·{' '}
-              {int(results.meta.runs)} runs
-            </span>
-          )}
-        </div>
-        <nav className="bar-tabs" aria-label="Views">
-          {TABS.map((t) => (
-            <a key={t.id} href={`#${t.id}`} className={tab === t.id ? 'active' : ''} aria-current={tab === t.id ? 'page' : undefined}>
-              {t.label}
+    <div className={withSidebar ? 'site has-side' : 'site'}>
+      <header className="topnav">
+        <a className="brand" href="#dashboard">
+          <span className="brand-mark" aria-hidden="true" />
+          <span>Forecasts &amp; batteries</span>
+        </a>
+        <nav aria-label="Pages">
+          {PAGES.map((p) => (
+            <a key={p.id} href={`#${p.id}`} className={page === p.id ? 'active' : ''} aria-current={page === p.id ? 'page' : undefined}>
+              {p.label}
             </a>
           ))}
         </nav>
       </header>
 
-      {error && (
-        <p className="notice" role="alert">
-          {error}. Run <code>python -m benchmark.export</code> to create it.
-        </p>
-      )}
-      {!results && !error && <p className="notice">Loading results…</p>}
+      <main className={withSidebar ? 'main bench-wrap' : 'main'}>
+        {error && (
+          <p className="empty" role="alert">
+            {error}. Run <code>{needs === 'results' ? 'python -m benchmark.export' : 'python -m benchmark.decision.export'}</code> to create it.
+          </p>
+        )}
+        {!ready && !error && <p className="empty">Loading…</p>}
+        {decision && page === 'dashboard' &&
+          (decision.multiclient ? <Dashboard decision={decision} mc={decision.multiclient} /> : <p className="empty">Run benchmark.multiclient to create the ten-client results.</p>)}
+        {decision && page === 'day' && (
+          <div className="page">
+            <Decisions decision={decision} />
+          </div>
+        )}
+        {decision && page === 'evidence' && <Evidence decision={decision} />}
+        {results && page === 'benchmark' && <Benchmark results={results} sub={sub} />}
+      </main>
 
-      {results && filters && (
-        <>
-          <Sidebar results={results} filters={filters} onChange={setFilters} passing={passing.length} />
-          <main className="content">
-            <MetricCards results={results} size={filters.size} passing={passing} />
-            {tab === 'overview' && <Overview results={results} />}
-            {tab === 'comparison' && <Comparison results={results} filters={filters} passing={passing} />}
-            {tab === 'data-size' && <DataSize results={results} filters={filters} passing={passing} />}
-            {tab === 'forecast' && <Forecast results={results} />}
-            {tab === 'methods' && <Methods results={results} />}
-            <footer className="footer">
-              Data: <a href={results.meta.dataset_url}>{results.meta.dataset}</a> · generated{' '}
-              {results.meta.generated_at.slice(0, 10)}
-              {results.meta.git_commit && <> · commit {results.meta.git_commit}</>}
-            </footer>
-          </main>
-        </>
-      )}
+      <footer className="site-foot">
+        Data: <a href="https://archive.ics.uci.edu/dataset/321/electricityloaddiagrams20112014">UCI ElectricityLoadDiagrams20112014</a> · Tariff:
+        Taipower high-voltage two-stage TOU (2025-10) ·{' '}
+        <a href="https://github.com/ChenYi494/power-load-forecasting-benchmarks">GitHub</a>
+        {decision?.meta.git_commit && <> · commit {decision.meta.git_commit}</>}
+      </footer>
     </div>
   )
 }

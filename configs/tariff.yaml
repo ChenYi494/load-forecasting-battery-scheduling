@@ -1,0 +1,61 @@
+# Taipower high-voltage two-stage time-of-use tariff (高壓供電 二段式時間電價), TWD.
+# Copied from the official Taipower tariff documents listed under `source`.
+#
+# This tariff is applied to a Portuguese load profile as an illustrative price structure: the
+# results show how forecast quality changes the bill under this structure, not a real bill.
+# Taipower off-peak days (Taiwanese public holidays) are not applied; only Sundays are all-day off-peak.
+
+name: Taipower high-voltage two-stage TOU
+currency: TWD
+source:
+  document: >-
+    台灣電力公司 調整後各類用戶電價表（中華民國 114 年 10 月 1 日起實施），第 8 頁
+    五、高壓及特高壓電力電價 (一)二段式時間電價；台灣電力公司 電價表（詳細電價表，
+    114 年 11 月 17 日經授能字第 11400334600 號函同意備查），第 12 頁 超約計算
+  url: https://www.taipower.com.tw/
+  retrieved: "2026-11-19"
+
+summer:                   # 夏月 5 月 16 日至 10 月 15 日 (high voltage)
+  start: "05-16"
+  end: "10-15"
+
+basic_charge_per_kw_month:   # 經常契約, 每瓩每月
+  summer: 223.60
+  non_summer: 166.90
+
+# 週六半尖峰契約 / 離峰契約 price; also the rate for excess demand in Saturday and off-peak periods
+off_peak_contract_per_kw_month:
+  summer: 44.70
+  non_summer: 33.30
+
+energy_charge_per_kwh:       # 每度
+  summer:
+    peak: 6.75
+    semi_peak: 2.77        # Saturday semi-peak (週六半尖峰)
+    off_peak: 2.71
+  non_summer:
+    peak: 6.37
+    semi_peak: 2.54
+    off_peak: 2.46
+
+# Time periods; any slot not listed is off-peak. Times are [from, to) in HH:MM.
+periods:
+  summer:
+    weekday:
+      - {from: "09:00", to: "24:00", period: peak}
+    saturday:
+      - {from: "09:00", to: "24:00", period: semi_peak}
+    sunday: []
+  non_summer:
+    weekday:
+      - {from: "06:00", to: "11:00", period: peak}
+      - {from: "14:00", to: "24:00", period: peak}
+    saturday:
+      - {from: "06:00", to: "11:00", period: semi_peak}
+      - {from: "14:00", to: "24:00", period: semi_peak}
+    sunday: []
+
+# 超約: excess kW billed at a multiple of the applicable basic charge
+excess_penalty:
+  within_10pct: 2          # 在契約容量 10% 以下部分按 2 倍計收基本電費
+  beyond_10pct: 3          # 超過契約容量 10% 部分按 3 倍計收基本電費

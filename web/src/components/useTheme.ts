@@ -7,6 +7,13 @@ export interface ThemeColors {
   line: string
   surface: string
   series: Record<string, string>
+  /** Decision-layer colors: peak-price shading, battery, overruns, the two planners */
+  peakBg: string
+  charge: string
+  discharge: string
+  over: string
+  plain: string
+  good: string
 }
 
 function read(): ThemeColors {
@@ -17,8 +24,15 @@ function read(): ThemeColors {
     muted: v('--muted'),
     line: v('--line'),
     surface: v('--surface'),
+    peakBg: v('--peak-bg'),
+    charge: v('--charge'),
+    discharge: v('--discharge'),
+    over: v('--over'),
+    plain: v('--plain'),
+    good: v('--good'),
     series: {
       actual: v('--fg'),
+      perfect: v('--accent'),
       naive: v('--c-naive'),
       linear: v('--c-linear'),
       mlp: v('--c-mlp'),

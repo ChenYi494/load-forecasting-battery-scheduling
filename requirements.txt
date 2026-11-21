@@ -7,3 +7,7 @@ torch==2.15.0
 joblib==1.6.0
 psutil==7.2.2
 pytz==2026.6
+
+# Tests
+pytest==9.2.0
+pyyaml==6.0.3
