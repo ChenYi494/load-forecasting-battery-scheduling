@@ -176,7 +176,7 @@ def build_multiclient():
             "perfect_saving_pct": round(float(r["perfect_saving_pct"]), 2),
             "best_rmse": r["best_rmse"],
             **{p: {"share": {m: round(float(r[f"{p}_{m}"]), 2) for m in METHODS},
-                   "model_gap": round(float(r[f"{p}_model_gap"]), 2), "seed_spread": round(float(r[f"{p}_seed_spread"]), 2),
+                   "model_gap": round(float(r[f"{p}_model_gap"]), 3), "seed_spread": round(float(r[f"{p}_seed_spread"]), 3),
                    "best": r[f"{p}_best"], "rank_corr_rmse": round(float(r[f"{p}_rank_corr_rmse"]), 3),
                    "rank_corr_peak": round(float(r[f"{p}_rank_corr_peak"]), 3)}
                for p in ("plain", "flatten")},
@@ -212,7 +212,8 @@ def build_multiclient():
             "flatten_gain_max": round(float(gains.max()), 2),
             **{f"{p}_{k}": v for p in ("plain", "flatten") for k, v in {
                 "gap_above_seed_spread": int((summary[f"{p}_model_gap"] > summary[f"{p}_seed_spread"]).sum()),
-                "median_model_gap": round(float(summary[f"{p}_model_gap"].median()), 2),
+                # 3 decimals: rounding to 2 here and to 1 on the site turned 3.745 into 3.8
+                "median_model_gap": round(float(summary[f"{p}_model_gap"].median()), 3),
                 "median_rank_corr_rmse": round(float(summary[f"{p}_rank_corr_rmse"].median()), 3),
                 "median_rank_corr_peak": round(float(summary[f"{p}_rank_corr_peak"].median()), 3),
                 "learned_beats_naive": int((best(p, learned) > best(p, naive)).sum()),
